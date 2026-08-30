@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Log Complaint | EV Charging DBMS{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div class="bg-danger-subtle text-danger p-3 rounded-circle me-3">
+                    <i class="fa-solid fa-triangle-exclamation fs-4"></i>
+                </div>
+                <div>
+                    <h3 class="fw-bold mb-0">File Maintenance Incident</h3>
+                    <p class="text-muted mb-0">Insert an incident report into <code>COMPLAINTS</code>.</p>
+                </div>
+            </div>
+            <hr>
+
+            <form method="POST" action="{{ url_for('new_complaint') }}">
+                <div class="mb-3">
+                    <label for="port_id" class="form-label fw-semibold">Select Defective Charging Port</label>
+                    <select class="form-select" id="port_id" name="port_id" required>
+                        <option value="" disabled selected>-- Select Port --</option>
+                        {% for p in ports %}
+                            <option value="{{ p.port_id }}">
+                                Port #{{ p.port_id }} (Station #{{ p.station_id }} - {{ p.company_name }} | {{ p.connector_type }} [Current: {{ p.status }}])
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="issue" class="form-label fw-semibold">Defect / Issue Description</label>
+                    <textarea class="form-control" id="issue" name="issue" rows="3" placeholder="e.g. Charging speed throttled below 50kW, connector lock jammed..." required></textarea>
+                    <div class="form-text text-muted">
+                        <i class="fa-solid fa-circle-info me-1"></i> Database Trigger <code>trg_port_fault_on_complaint</code> will automatically update this port's status to <strong>'Faulted'</strong>.
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-danger w-100"><i class="fa-solid fa-paper-plane me-1"></i> Submit Incident Report</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-list-check text-secondary me-2"></i>Recent Incident Tickets</h5>
+            <div class="table-responsive">
+                <table class="table table-hover table-custom align-middle">
+                    <thead>
+                        <tr>
+                            <th>Ticket</th>
+                            <th>Port</th>
+                            <th>Issue Summary</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in complaints %}
+                        <tr>
+                            <td><strong>#{{ c.complaint_id }}</strong></td>
+                            <td><span class="badge bg-light text-dark border">#{{ c.port_id }}</span></td>
+                            <td><small>{{ c.issue | truncate(40) }}</small></td>
+                            <td>
+                                {% if c.status == 'Open' %}
+                                    <span class="badge bg-danger">Open</span>
+                                {% elif c.status == 'In Progress' %}
+                                    <span class="badge bg-warning text-dark">In Progress</span>
+                                {% else %}
+                                    <span class="badge bg-success">{{ c.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

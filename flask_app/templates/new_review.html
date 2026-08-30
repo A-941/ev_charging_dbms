@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Submit Review | EV Charging DBMS{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div class="bg-warning-subtle text-warning p-3 rounded-circle me-3">
+                    <i class="fa-solid fa-star fs-4"></i>
+                </div>
+                <div>
+                    <h3 class="fw-bold mb-0">Rate Charging Station</h3>
+                    <p class="text-muted mb-0">Insert customer feedback into <code>REVIEWS</code>.</p>
+                </div>
+            </div>
+            <hr>
+
+            <form method="POST" action="{{ url_for('new_review') }}">
+                <div class="mb-3">
+                    <label for="user_id" class="form-label fw-semibold">Select Reviewer (User)</label>
+                    <select class="form-select" id="user_id" name="user_id" required>
+                        <option value="" disabled selected>-- Select User --</option>
+                        {% for u in users %}
+                            <option value="{{ u.user_id }}">{{ u.name }} (ID: {{ u.user_id }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="station_id" class="form-label fw-semibold">Select Station</label>
+                    <select class="form-select" id="station_id" name="station_id" required>
+                        <option value="" disabled selected>-- Select Station --</option>
+                        {% for s in stations %}
+                            <option value="{{ s.station_id }}">
+                                Station #{{ s.station_id }} ({{ s.company_name }} @ {{ s.latitude }}, {{ s.longitude }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label for="rating" class="form-label fw-semibold">Rating (1 to 5 Stars)</label>
+                    <select class="form-select" id="rating" name="rating" required>
+                        <option value="5" selected>⭐⭐⭐⭐⭐ (5 - Excellent)</option>
+                        <option value="4">⭐⭐⭐⭐ (4 - Very Good)</option>
+                        <option value="3">⭐⭐⭐ (3 - Average)</option>
+                        <option value="2">⭐⭐ (2 - Poor)</option>
+                        <option value="1">⭐ (1 - Terrible)</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-warning w-100"><i class="fa-solid fa-check me-1"></i> Submit Station Review</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-comments text-secondary me-2"></i>Recent Customer Reviews</h5>
+            <div class="table-responsive">
+                <table class="table table-hover table-custom align-middle">
+                    <thead>
+                        <tr>
+                            <th>Review</th>
+                            <th>Driver</th>
+                            <th>Station / Operator</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reviews %}
+                        <tr>
+                            <td><strong>#{{ r.review_id }}</strong></td>
+                            <td>{{ r.user_name }}</td>
+                            <td>Station #{{ r.station_id }} ({{ r.company_name }})</td>
+                            <td>
+                                <span class="text-warning fw-bold"><i class="fa-solid fa-star me-1"></i>{{ r.rating }}/5</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

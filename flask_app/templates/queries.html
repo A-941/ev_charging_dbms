@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}SQL Workbench | EV Charging DBMS{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card p-4 mb-4">
+            <div class="d-flex align-items-center mb-3">
+                <div class="bg-info-subtle text-info p-3 rounded-circle me-3">
+                    <i class="fa-solid fa-terminal fs-4"></i>
+                </div>
+                <div>
+                    <h3 class="fw-bold mb-0">Interactive SQL Query Workbench</h3>
+                    <p class="text-muted mb-0">Execute SQL queries directly against <code>ev_charging.db</code>.</p>
+                </div>
+            </div>
+            <hr>
+
+            <form method="POST" action="{{ url_for('queries') }}">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label for="preset_choice" class="form-label fw-semibold">Pre-loaded Syllabus Demonstration Queries</label>
+                        <select class="form-select" id="preset_choice" name="preset_choice" onchange="window.location.href='{{ url_for('queries') }}?preset=' + encodeURIComponent(this.value)">
+                            {% for preset_name, _ in presets.items() %}
+                                <option value="{{ preset_name }}" {% if preset_name == selected_preset %}selected{% endif %}>
+                                    {{ preset_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100 py-2">
+                            <i class="fa-solid fa-play me-1"></i> Execute SQL
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="sql_query" class="form-label fw-semibold">SQL Query Text</label>
+                    <textarea class="form-control font-monospace" id="sql_query" name="sql_query" rows="6" required>{{ query_sql }}</textarea>
+                </div>
+            </form>
+        </div>
+
+        {% if error %}
+            <div class="alert alert-danger shadow-sm">
+                <i class="fa-solid fa-circle-exclamation me-2"></i> <strong>SQL Execution Error:</strong> {{ error }}
+            </div>
+        {% elif results %}
+            <div class="card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-table text-primary me-2"></i>Query Result Set</h5>
+                    <span class="badge bg-success py-2 px-3">{{ row_count }} Rows Returned</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-bordered table-custom align-middle">
+                        <thead>
+                            <tr>
+                                {% for col in columns %}
+                                    <th>{{ col }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in results %}
+                            <tr>
+                                {% for val in row %}
+                                    <td>{{ val }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

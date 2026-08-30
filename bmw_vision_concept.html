@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VISION M-SYNTHESIS | 3D Electric Concept Experience</title>
+    <!-- Three.js from cdnjs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #06080c;
+            --surface-glass: rgba(13, 17, 24, 0.75);
+            --border-glass: rgba(255, 255, 255, 0.12);
+            --accent-cyan: #00e5ff;
+            --accent-blue: #0066b1;
+            --accent-red: #e10600;
+            --accent-glow: 0 0 25px rgba(0, 229, 255, 0.4);
+            --text-main: #f0f4f8;
+            --text-dim: #8a99a8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        /* 3D WebGL Canvas Layer */
+        #webgl-canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: auto;
+        }
+
+        /* Ambient Cyber Gradients & Vignette */
+        .vignette-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 2;
+            pointer-events: none;
+            background: radial-gradient(circle at center, transparent 35%, rgba(6, 8, 12, 0.85) 90%),
+                        linear-gradient(to bottom, rgba(6,8,12,0.4) 0%, transparent 20%, transparent 80%, rgba(6,8,12,0.9) 100%);
+        }
+
+        /* Header Navigation */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            padding: 1.5rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-glass);
+            background: linear-gradient(180deg, rgba(6,8,12,0.8) 0%, transparent 100%);
+        }
+
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-badge {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .m-stripes {
+            display: inline-flex;
+            height: 16px;
+            gap: 3px;
+            transform: skewX(-20deg);
+        }
+        .stripe-light-blue { width: 5px; background: #54a9e8; }
+        .stripe-dark-blue  { width: 5px; background: #0066b1; }
+        .stripe-red        { width: 5px; background: #e10600; }
+
+        .concept-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            padding: 3px 8px;
+            border-radius: 4px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .action-btn {
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main);
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-btn:hover {
+            border-color: var(--accent-cyan);
+            box-shadow: var(--accent-glow);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .action-btn.active {
+            background: rgba(0, 229, 255, 0.2);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        /* Fixed Floating Configurator Dock */
+        .configurator-dock {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 90;
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
+            backdrop-filter: blur(20px);
+            padding: 12px 24px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+
+        .dock-label {
+            font-size: 0.72rem;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-dim);
+        }
+
+        .color-swatches {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s ease;
+            position: relative;
+        }
+
+        .swatch:hover {
+            transform: scale(1.25);
+        }
+
+        .swatch.active {
+            border-color: #ffffff;
+            transform: scale(1.3);
+            box-shadow: 0 0 12px currentColor;
+        }
+
+        .dock-divider {
+            width: 1px;
+            height: 24px;
+            background: var(--border-glass);
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-toggle {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.85rem;
+        }
+
+        .icon-toggle:hover, .icon-toggle.active {
+            background: rgba(0, 229, 255, 0.25);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+        }
+
+        /* Scrollable Story Content Sections */
+        .content-scroll-container {
+            position: relative;
+            z-index: 10;
+            pointer-events: none; /* Allow 3D canvas interaction underneath */
+        }
+
+        section {
+            min-height: 100vh;
+            padding: 6rem 4rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-width: 1400px;
+            margin: 0 auto;
+            pointer-events: none;
+        }
+
+        .interactive-panel {
+            pointer-events: auto;
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
+            backdrop-filter: blur(24px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            max-width: 540px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            transform: translateY(30px);
+            opacity: 0;
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
+        }
+
+        .interactive-panel.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .interactive-panel.right-align {
+            margin-left: auto;
+        }
+
+        .panel-eyebrow {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-cyan);
+            font-size: 0.78rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-eyebrow::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+
+        .panel-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.4rem;
+            font-weight: 900;
+            line-height: 1.15;
+            margin-bottom: 1.2rem;
+            background: linear-gradient(135deg, #ffffff 30%, #a0aec0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .panel-desc {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            line-height: 1.65;
+            margin-bottom: 1.8rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 1rem;
+        }
+
+        .metric-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .metric-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #ffffff;
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+
+        .metric-unit {
+            font-size: 0.85rem;
+            color: var(--accent-cyan);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .metric-label {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        /* Sound Rev Trigger Button */
+        .rev-button {
+            background: linear-gradient(135deg, #0066b1, #00e5ff);
+            color: #06080c;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 1.5px;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(0, 229, 255, 0.3);
+        }
+
+        .rev-button:hover {
+            box-shadow: 0 8px 30px rgba(0, 229, 255, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .rev-button:active {
+            transform: translateY(1px);
+        }
+
+        /* Progress Scroll Indicator */
+        .scroll-progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #54a9e8, #0066b1, #00e5ff, #e10600);
+            width: 0%;
+            z-index: 1000;
+            transition: width 0.1s ease-out;
+        }
+
+        /* Interactive 3D Hotspot Overlays */
+        .hotspot-tag {
+            position: absolute;
+            z-index: 50;
+            transform: translate(-50%, -50%);
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .hotspot-pulse {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(0, 229, 255, 0.4);
+            border: 2px solid var(--accent-cyan);
+            animation: pulseGlow 2s infinite ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hotspot-inner {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #fff;
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.7); }
+            70% { transform: scale(1.4); box-shadow: 0 0 0 12px rgba(0, 229, 255, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); }
+        }
+
+        /* Footer & Academic Disclaimer */
+        footer {
+            position: relative;
+            z-index: 20;
+            background: rgba(6, 8, 12, 0.95);
+            border-top: 1px solid var(--border-glass);
+            padding: 3rem 4rem;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .disclaimer-box {
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 3px solid var(--accent-cyan);
+            padding: 1rem 1.5rem;
+            border-radius: 4px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header { padding: 1rem 1.5rem; }
+            section { padding: 4rem 1.5rem; }
+            .configurator-dock { bottom: 1rem; width: 92%; justify-content: space-around; padding: 10px 16px; }
+            .panel-title { font-size: 1.8rem; }
+            .metrics-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Scroll Progress Indicator -->
+    <div class="scroll-progress-bar" id="scrollProgress"></div>
+
+    <!-- Vignette / Lighting Overlay -->
+    <div class="vignette-overlay"></div>
+
+    <!-- 3D Canvas Container -->
+    <div id="webgl-canvas-container"></div>
+
+    <!-- Top Navigation Header -->
+    <header>
+        <div class="brand-container">
+            <div class="brand-badge">
+                <div class="m-stripes">
+                    <span class="stripe-light-blue"></span>
+                    <span class="stripe-dark-blue"></span>
+                    <span class="stripe-red"></span>
+                </div>
+                <span>VISION M</span>
+            </div>
+            <span class="concept-tag">SYNTHESIS EV</span>
+        </div>
+
+        <div class="nav-actions">
+            <button class="action-btn" id="orbitModeBtn" title="Toggle Free 360° Orbit Mode">
+                <i class="fa-solid fa-arrows-spin"></i> <span>Free Orbit</span>
+            </button>
+            <button class="action-btn" id="resetCamBtn" title="Reset Camera Angle">
+                <i class="fa-solid fa-crosshairs"></i> <span>Reset View</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Floating Live Configurator Dock -->
+    <div class="configurator-dock">
+        <span class="dock-label"><i class="fa-solid fa-palette me-1"></i> Bespoke Paint</span>
+        <div class="color-swatches">
+            <!-- Isle of Man Green -->
+            <div class="swatch active" style="background: #0b4f3b;" data-color="#0b4f3b" data-name="Isle of Man Green" title="Isle of Man Green"></div>
+            <!-- Frozen Deep Grey -->
+            <div class="swatch" style="background: #2b303c;" data-color="#2b303c" data-name="Frozen Deep Grey" title="Frozen Deep Grey"></div>
+            <!-- Tanzanite Blue -->
+            <div class="swatch" style="background: #09284d;" data-color="#09284d" data-name="Tanzanite Blue II" title="Tanzanite Blue II"></div>
+            <!-- Sao Paulo Yellow -->
+            <div class="swatch" style="background: #d8f500;" data-color="#d8f500" data-name="Sao Paulo Yellow" title="Sao Paulo Yellow"></div>
+            <!-- Melbourne Red -->
+            <div class="swatch" style="background: #a31414;" data-color="#a31414" data-name="Melbourne Red" title="Melbourne Red"></div>
+            <!-- Alpine White -->
+            <div class="swatch" style="background: #eef2f7;" data-color="#eef2f7" data-name="Alpine White" title="Alpine White"></div>
+            <!-- Carbon Black -->
+            <div class="swatch" style="background: #111419;" data-color="#111419" data-name="Carbon Black" title="Carbon Black"></div>
+        </div>
+
+        <div class="dock-divider"></div>
+
+        <div class="toggle-group">
+            <button class="icon-toggle active" id="headlightToggle" title="Toggle Laser Headlights">
+                <i class="fa-solid fa-lightbulb"></i>
+            </button>
+            <button class="icon-toggle active" id="underglowToggle" title="Toggle Neon Underglow">
+                <i class="fa-solid fa-sun"></i>
+            </button>
+            <button class="icon-toggle" id="spoilerToggle" title="Toggle Active Aero Spoiler">
+                <i class="fa-solid fa-angles-up"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Scrollable Storyline & Telemetry Sections -->
+    <div class="content-scroll-container">
+        
+        <!-- SECTION 1: HERO OVERVIEW -->
+        <section id="section-hero">
+            <div class="interactive-panel visible">
+                <div class="panel-eyebrow">AERODYNAMIC CONCEPT 2026</div>
+                <h1 class="panel-title">THE SYNTHESIS OF POWER & SILENCE</h1>
+                <p class="panel-desc">
+                    An electric hyper-coupe sculpted by wind and synthetic intelligence. Featuring dual synchronous M-eDrive motors, 800V silicon-carbide architecture, and dynamic active aero surfaces.
+                </p>
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-value"><span class="counter" data-target="2.85">0.0</span><span class="metric-unit">s</span></div>
+                        <div class="metric-label">0 – 100 km/h Acceleration</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-value"><span class="counter" data-target="912">0</span><span class="metric-unit">hp</span></div>
+                        <div class="metric-label">Dual-Motor Output (680 kW)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: AERODYNAMIC ARCHITECTURE -->
+        <section id="section-aero">
+            <div class="interactive-panel right-align">
+                <div class="panel-eyebrow">DRAG PROFILE & AERODYNAMICS</div>
+                <h2 class="panel-title">SCULPTED FOR MINIMAL RESISTANCE</h2>
+                <p class="panel-desc">
+                    Target drag coefficient of <strong>$C_d = 0.21$</strong> achieved through integrated carbon fiber air curtains, vented front wheel arches, and active twin-element front kidney intake shutters that modulate cooling flow dynamically.
+                </p>
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-value">0.21 <span class="metric-unit">Cd</span></div>
+                        <div class="metric-label">Aero Drag Coefficient</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-value"><span class="counter" data-target="740">0</span><span class="metric-unit">km</span></div>
+                        <div class="metric-label">Target WLTP Range</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: POWERTRAIN & ULTRA-FAST CHARGING -->
+        <section id="section-powertrain">
+            <div class="interactive-panel">
+                <div class="panel-eyebrow">800V HIGH-VOLTAGE ARCHITECTURE</div>
+                <h2 class="panel-title">NEXT-GEN SOLID STATE CHARGING</h2>
+                <p class="panel-desc">
+                    Engineered for continuous track endurance with liquid-immersed cylindrical cells. Fast-charging capability at 350 kW DC charging hubs provides 400 km range in under 12 minutes.
+                </p>
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-value"><span class="counter" data-target="16">0</span><span class="metric-unit">min</span></div>
+                        <div class="metric-label">10% to 80% DC Fast Charge</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-value"><span class="counter" data-target="1150">0</span><span class="metric-unit">Nm</span></div>
+                        <div class="metric-label">Instant All-Wheel Torque</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: ACOUSTIC SYNTHESIS & LAUNCH BENCHMARK -->
+        <section id="section-launch">
+            <div class="interactive-panel right-align">
+                <div class="panel-eyebrow">M-SYNTHESIS SOUNDSCAPE</div>
+                <h2 class="panel-title">ELECTRIC ACOUSTIC ACCELERATION</h2>
+                <p class="panel-desc">
+                    Experience generative acoustic feedback synthesized through high-frequency oscillator waveforms mapped to rotor velocity and steering torque.
+                </p>
+                <button class="rev-button" id="audioRevBtn">
+                    <i class="fa-solid fa-volume-high"></i> <span>SIMULATE LAUNCH REV</span>
+                </button>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Footer with Academic / Non-Affiliation Disclaimer -->
+    <footer>
+        <div class="footer-content">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="brand-badge">
+                    <div class="m-stripes">
+                        <span class="stripe-light-blue"></span>
+                        <span class="stripe-dark-blue"></span>
+                        <span class="stripe-red"></span>
+                    </div>
+                    <span>VISION M-SYNTHESIS CONCEPT</span>
+                </div>
+                <span class="text-secondary small">Real-time Three.js WebGL Engine</span>
+            </div>
+            
+            <div class="disclaimer-box">
+                <strong>Concept Prototype Notice:</strong> This project is a stylized, procedural 3D conceptual design demonstration. It is not affiliated with, endorsed by, sponsored by, or connected to Bayerische Motoren Werke AG (BMW AG) or any of its subsidiaries. All specifications, telemetry, and acceleration metrics are illustrative conceptual targets.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Three.js Scene Setup & Interactive Choreography -->
+    <script>
+        // ---------------------------------------------------------------------
+        // 1. SCENE, CAMERA & RENDERER SETUP
+        // ---------------------------------------------------------------------
+        const container = document.getElementById('webgl-canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x06080c, 0.025);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(5.5, 2.2, 5.5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.02; // Don't go below ground
+        controls.minDistance = 3.5;
+        controls.maxDistance = 14;
+        controls.enabled = false; // Enabled only in free orbit mode
+
+        // ---------------------------------------------------------------------
+        // 2. LIGHTING & ENVIRONMENT
+        // ---------------------------------------------------------------------
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        // Key Overhead Studio Light
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+        keyLight.position.set(6, 10, 6);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.width = 2048;
+        keyLight.shadow.mapSize.height = 2048;
+        keyLight.shadow.camera.near = 0.5;
+        keyLight.shadow.camera.far = 25;
+        keyLight.shadow.bias = -0.0005;
+        scene.add(keyLight);
+
+        // Rim Cyan Light (Cyber Aesthetic)
+        const cyanRimLight = new THREE.DirectionalLight(0x00e5ff, 2.2);
+        cyanRimLight.position.set(-8, 4, -6);
+        scene.add(cyanRimLight);
+
+        // Warm Contrast Fill Light
+        const warmFillLight = new THREE.DirectionalLight(0xff7700, 0.8);
+        warmFillLight.position.set(8, -2, -5);
+        scene.add(warmFillLight);
+
+        // Underglow Point Lights
+        const underglowColor = new THREE.Color(0x00e5ff);
+        const underglowLightFront = new THREE.PointLight(underglowColor, 3.5, 4.5);
+        underglowLightFront.position.set(0, 0.15, 1.2);
+        scene.add(underglowLightFront);
+
+        const underglowLightRear = new THREE.PointLight(underglowColor, 3.5, 4.5);
+        underglowLightRear.position.set(0, 0.15, -1.2);
+        scene.add(underglowLightRear);
+
+        // ---------------------------------------------------------------------
+        // 3. GROUND PLANE & CYBER REFLECTION GRID
+        // ---------------------------------------------------------------------
+        const groundGeo = new THREE.PlaneGeometry(80, 80);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x05070a,
+            roughness: 0.25,
+            metalness: 0.85,
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.01;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Grid lines
+        const gridHelper = new THREE.GridHelper(60, 60, 0x00e5ff, 0x15202b);
+        gridHelper.position.y = 0.005;
+        gridHelper.material.opacity = 0.25;
+        gridHelper.material.transparent = true;
+        scene.add(gridHelper);
+
+        // ---------------------------------------------------------------------
+        // 4. PROCEDURAL 3D CAR MODEL CONSTRUCTION
+        // ---------------------------------------------------------------------
+        const carGroup = new THREE.Group();
+        scene.add(carGroup);
+
+        // Shaders & Materials
+        let currentPaintColor = 0x0b4f3b; // Default Isle of Man Green
+        const carPaintMaterial = new THREE.MeshPhysicalMaterial({
+            color: currentPaintColor,
+            metalness: 0.9,
+            roughness: 0.18,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.05,
+            reflectivity: 0.95
+        });
+
+        const carbonMaterial = new THREE.MeshStandardMaterial({
+            color: 0x121417,
+            roughness: 0.4,
+            metalness: 0.8
+        });
+
+        const glassMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x11161b,
+            metalness: 0.1,
+            roughness: 0.05,
+            transmission: 0.85,
+            transparent: true,
+            opacity: 0.92
+        });
+
+        const rimMaterial = new THREE.MeshStandardMaterial({
+            color: 0xdde3ea,
+            metalness: 0.95,
+            roughness: 0.2
+        });
+
+        const tireMaterial = new THREE.MeshStandardMaterial({
+            color: 0x151618,
+            roughness: 0.85,
+            metalness: 0.1
+        });
+
+        const brakeCaliperMaterial = new THREE.MeshStandardMaterial({
+            color: 0x0066b1, // M Sport Blue
+            metalness: 0.8,
+            roughness: 0.3
+        });
+
+        const headlightGlowMaterial = new THREE.MeshBasicMaterial({
+            color: 0xe6fbff,
+            transparent: true,
+            opacity: 0.95
+        });
+
+        const taillightGlowMaterial = new THREE.MeshBasicMaterial({
+            color: 0xff0820,
+            transparent: true,
+            opacity: 0.95
+        });
+
+        // A. Main Lower Body / Chassis
+        const lowerBodyGeo = new THREE.BoxGeometry(2.0, 0.48, 4.4);
+        const lowerBody = new THREE.Mesh(lowerBodyGeo, carPaintMaterial);
+        lowerBody.position.y = 0.48;
+        lowerBody.castShadow = true;
+        lowerBody.receiveShadow = true;
+        carGroup.add(lowerBody);
+
+        // B. Sculpted Hood & Nose Slope
+        const hoodGeo = new THREE.CylinderGeometry(0.85, 1.0, 1.8, 4);
+        const hood = new THREE.Mesh(hoodGeo, carPaintMaterial);
+        hood.rotation.y = Math.PI / 4;
+        hood.rotation.x = Math.PI / 2;
+        hood.position.set(0, 0.58, 1.25);
+        hood.scale.set(1.0, 0.28, 1.0);
+        hood.castShadow = true;
+        carGroup.add(hood);
+
+        // C. Aerodynamic Cockpit Glass Canopy
+        const cabinGeo = new THREE.CylinderGeometry(0.68, 0.96, 2.1, 8);
+        const cabin = new THREE.Mesh(cabinGeo, glassMaterial);
+        cabin.rotation.x = Math.PI / 2;
+        cabin.position.set(0, 0.92, -0.2);
+        cabin.scale.set(0.95, 0.42, 1.0);
+        cabin.castShadow = true;
+        carGroup.add(cabin);
+
+        // D. Carbon Fiber Roof Pillar Spine
+        const roofSpineGeo = new THREE.BoxGeometry(0.85, 0.05, 1.8);
+        const roofSpine = new THREE.Mesh(roofSpineGeo, carbonMaterial);
+        roofSpine.position.set(0, 1.13, -0.2);
+        carGroup.add(roofSpine);
+
+        // E. Iconic Twin-Kidney Grille Nod (Stylized Geometric Illuminated Frame)
+        const grilleLeftGeo = new THREE.BoxGeometry(0.28, 0.32, 0.1);
+        const grilleLeft = new THREE.Mesh(grilleLeftGeo, carbonMaterial);
+        grilleLeft.position.set(-0.18, 0.45, 2.22);
+        carGroup.add(grilleLeft);
+
+        const grilleRight = grilleLeft.clone();
+        grilleRight.position.x = 0.18;
+        carGroup.add(grilleRight);
+
+        // Kidney LED Accents
+        const kidneyLedGeo = new THREE.BoxGeometry(0.24, 0.28, 0.04);
+        const kidneyLedL = new THREE.Mesh(kidneyLedGeo, headlightGlowMaterial);
+        kidneyLedL.position.set(-0.18, 0.45, 2.26);
+        carGroup.add(kidneyLedL);
+
+        const kidneyLedR = kidneyLedL.clone();
+        kidneyLedR.position.x = 0.18;
+        carGroup.add(kidneyLedR);
+
+        // F. Laser Headlights (Sharp Angular Lightbars)
+        const lightGeo = new THREE.BoxGeometry(0.42, 0.08, 0.25);
+        const lightL = new THREE.Mesh(lightGeo, headlightGlowMaterial);
+        lightL.position.set(-0.72, 0.58, 2.05);
+        lightL.rotation.y = 0.25;
+        carGroup.add(lightL);
+
+        const lightR = new THREE.Mesh(lightGeo, headlightGlowMaterial);
+        lightR.position.set(0.72, 0.58, 2.05);
+        lightR.rotation.y = -0.25;
+        carGroup.add(lightR);
+
+        // G. Rear OLED Lightblade
+        const tailGeo = new THREE.BoxGeometry(1.85, 0.08, 0.1);
+        const tailBlade = new THREE.Mesh(tailGeo, taillightGlowMaterial);
+        tailBlade.position.set(0, 0.68, -2.2);
+        carGroup.add(tailBlade);
+
+        // H. Active Carbon Rear Spoiler
+        const spoilerGeo = new THREE.BoxGeometry(1.7, 0.04, 0.38);
+        const spoiler = new THREE.Mesh(spoilerGeo, carbonMaterial);
+        spoiler.position.set(0, 0.88, -2.05);
+        spoiler.castShadow = true;
+        carGroup.add(spoiler);
+
+        const spoilerStrutL = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.22), carbonMaterial);
+        spoilerStrutL.position.set(-0.6, 0.78, -2.05);
+        carGroup.add(spoilerStrutL);
+
+        const spoilerStrutR = spoilerStrutL.clone();
+        spoilerStrutR.position.x = 0.6;
+        carGroup.add(spoilerStrutR);
+
+        // I. Wheels with Rim Spokes and Calipers
+        const wheelMeshes = [];
+        const createWheel = (x, z) => {
+            const wheelAnchor = new THREE.Group();
+            wheelAnchor.position.set(x, 0.35, z);
+
+            // Tire
+            const tireGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.28, 24);
+            const tire = new THREE.Mesh(tireGeo, tireMaterial);
+            tire.rotation.z = Math.PI / 2;
+            tire.castShadow = true;
+            wheelAnchor.add(tire);
+
+            // Rim Hub
+            const rimGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.29, 16);
+            const rim = new THREE.Mesh(rimGeo, rimMaterial);
+            rim.rotation.z = Math.PI / 2;
+            wheelAnchor.add(rim);
+
+            // Rim Spokes
+            for (let i = 0; i < 5; i++) {
+                const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.48, 0.04), rimMaterial);
+                spoke.rotation.x = (i * Math.PI) / 2.5;
+                wheelAnchor.add(spoke);
+            }
+
+            // Brake Caliper
+            const caliper = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.12), brakeCaliperMaterial);
+            caliper.position.set(x > 0 ? -0.05 : 0.05, 0.12, 0);
+            wheelAnchor.add(caliper);
+
+            carGroup.add(wheelAnchor);
+            wheelMeshes.push(wheelAnchor);
+        };
+
+        createWheel(-1.02, 1.35);  // Front Left
+        createWheel(1.02, 1.35);   // Front Right
+        createWheel(-1.02, -1.35); // Rear Left
+        createWheel(1.02, -1.35);  // Rear Right
+
+        // ---------------------------------------------------------------------
+        // 5. SCROLL CHOREOGRAPHY & CAMERA KEYFRAMES
+        // ---------------------------------------------------------------------
+        const cameraWaypoints = [
+            { scrollPct: 0.00, pos: { x: 5.2, y: 2.0, z: 5.2 }, target: { x: 0, y: 0.4, z: 0 } },      // Front 3/4 Hero
+            { scrollPct: 0.33, pos: { x: 6.2, y: 1.2, z: 0.2 }, target: { x: 0, y: 0.45, z: 0 } },     // Side Aero Profile
+            { scrollPct: 0.66, pos: { x: 0.5, y: 5.8, z: 0.2 }, target: { x: 0, y: 0.4, z: -0.2 } },   // High X-Ray Cockpit
+            { scrollPct: 1.00, pos: { x: -3.8, y: 1.6, z: -5.4 }, target: { x: 0, y: 0.5, z: 0 } }    // Rear Diffuser & Launch
+        ];
+
+        let scrollProgress = 0;
+        const progressEl = document.getElementById('scrollProgress');
+
+        function updateCameraOnScroll() {
+            if (controls.enabled) return; // Don't override if user is in free orbit mode
+
+            const scrollY = window.scrollY;
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            scrollProgress = Math.max(0, Math.min(1, scrollY / (maxScroll || 1)));
+            progressEl.style.width = (scrollProgress * 100) + '%';
+
+            // Find current waypoint segment
+            let startWp = cameraWaypoints[0];
+            let endWp = cameraWaypoints[cameraWaypoints.length - 1];
+
+            for (let i = 0; i < cameraWaypoints.length - 1; i++) {
+                if (scrollProgress >= cameraWaypoints[i].scrollPct && scrollProgress <= cameraWaypoints[i+1].scrollPct) {
+                    startWp = cameraWaypoints[i];
+                    endWp = cameraWaypoints[i+1];
+                    break;
+                }
+            }
+
+            const segmentProgress = (scrollProgress - startWp.scrollPct) / (endWp.scrollPct - startWp.scrollPct || 1);
+            const eased = 0.5 - Math.cos(segmentProgress * Math.PI) / 2; // Smooth cosine interpolation
+
+            camera.position.x = THREE.MathUtils.lerp(startWp.pos.x, endWp.pos.x, eased);
+            camera.position.y = THREE.MathUtils.lerp(startWp.pos.y, endWp.pos.y, eased);
+            camera.position.z = THREE.MathUtils.lerp(startWp.pos.z, endWp.pos.z, eased);
+
+            const targetX = THREE.MathUtils.lerp(startWp.target.x, endWp.target.x, eased);
+            const targetY = THREE.MathUtils.lerp(startWp.target.y, endWp.target.y, eased);
+            const targetZ = THREE.MathUtils.lerp(startWp.target.z, endWp.target.z, eased);
+            camera.lookAt(targetX, targetY, targetZ);
+
+            // Spin wheels according to scroll velocity
+            wheelMeshes.forEach(w => {
+                w.rotation.x = scrollProgress * 28;
+            });
+        }
+
+        window.addEventListener('scroll', updateCameraOnScroll);
+
+        // Reveal panels on scroll intersection
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    // Animate counters inside panel
+                    entry.target.querySelectorAll('.counter').forEach(counter => {
+                        const target = parseFloat(counter.getAttribute('data-target'));
+                        let count = 0;
+                        const step = target / 40;
+                        const timer = setInterval(() => {
+                            count += step;
+                            if (count >= target) {
+                                counter.textContent = target.toFixed(target % 1 === 0 ? 0 : 2);
+                                clearInterval(timer);
+                            } else {
+                                counter.textContent = count.toFixed(target % 1 === 0 ? 0 : 2);
+                            }
+                        }, 25);
+                    });
+                }
+            });
+        }, { threshold: 0.35 });
+
+        document.querySelectorAll('.interactive-panel').forEach(p => observer.observe(p));
+
+        // ---------------------------------------------------------------------
+        // 6. LIVE CONFIGURATOR & COLOR SWATCHES
+        // ---------------------------------------------------------------------
+        document.querySelectorAll('.swatch').forEach(swatch => {
+            swatch.addEventListener('click', (e) => {
+                document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+                swatch.classList.add('active');
+
+                const colorHex = swatch.getAttribute('data-color');
+                currentPaintColor = parseInt(colorHex.replace('#', '0x'));
+                
+                // Animate material color transition smoothly
+                carPaintMaterial.color.setHex(currentPaintColor);
+            });
+        });
+
+        // Headlight Toggle
+        let headlightsOn = true;
+        document.getElementById('headlightToggle').addEventListener('click', function() {
+            headlightsOn = !headlightsOn;
+            this.classList.toggle('active', headlightsOn);
+            headlightGlowMaterial.opacity = headlightsOn ? 0.95 : 0.1;
+            tailBlade.material.opacity = headlightsOn ? 0.95 : 0.15;
+            kidneyLedL.material.opacity = headlightsOn ? 0.95 : 0.1;
+            kidneyLedR.material.opacity = headlightsOn ? 0.95 : 0.1;
+        });
+
+        // Underglow Toggle
+        let underglowOn = true;
+        document.getElementById('underglowToggle').addEventListener('click', function() {
+            underglowOn = !underglowOn;
+            this.classList.toggle('active', underglowOn);
+            underglowLightFront.intensity = underglowOn ? 3.5 : 0;
+            underglowLightRear.intensity = underglowOn ? 3.5 : 0;
+        });
+
+        // Active Spoiler Toggle
+        let spoilerRaised = false;
+        document.getElementById('spoilerToggle').addEventListener('click', function() {
+            spoilerRaised = !spoilerRaised;
+            this.classList.toggle('active', spoilerRaised);
+            spoiler.position.y = spoilerRaised ? 1.05 : 0.88;
+            spoiler.rotation.x = spoilerRaised ? 0.15 : 0.0;
+        });
+
+        // Free Orbit Mode Toggle
+        const orbitBtn = document.getElementById('orbitModeBtn');
+        orbitBtn.addEventListener('click', function() {
+            controls.enabled = !controls.enabled;
+            this.classList.toggle('active', controls.enabled);
+            if (controls.enabled) {
+                this.innerHTML = '<i class="fa-solid fa-lock me-1"></i> Lock to Scroll';
+            } else {
+                this.innerHTML = '<i class="fa-solid fa-arrows-spin me-1"></i> Free Orbit';
+                updateCameraOnScroll();
+            }
+        });
+
+        document.getElementById('resetCamBtn').addEventListener('click', function() {
+            controls.enabled = false;
+            orbitBtn.classList.remove('active');
+            orbitBtn.innerHTML = '<i class="fa-solid fa-arrows-spin me-1"></i> Free Orbit';
+            updateCameraOnScroll();
+        });
+
+        // ---------------------------------------------------------------------
+        // 7. SYNTHESIZED EV ACCELERATION SOUND (WEB AUDIO API)
+        // ---------------------------------------------------------------------
+        let audioCtx = null;
+        document.getElementById('audioRevBtn').addEventListener('click', () => {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc1.type = 'sawtooth';
+            osc2.type = 'sine';
+
+            const now = audioCtx.currentTime;
+
+            // Pitch rise simulating hypercar acceleration
+            osc1.frequency.setValueAtTime(80, now);
+            osc1.frequency.exponentialRampToValueAtTime(850, now + 2.2);
+
+            osc2.frequency.setValueAtTime(120, now);
+            osc2.frequency.exponentialRampToValueAtTime(1200, now + 2.2);
+
+            gain.gain.setValueAtTime(0.01, now);
+            gain.gain.linearRampToValueAtTime(0.25, now + 0.5);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+
+            osc1.connect(gain);
+            osc2.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc1.start(now);
+            osc2.start(now);
+            osc1.stop(now + 2.5);
+            osc2.stop(now + 2.5);
+
+            // Pulse underglow during launch
+            underglowLightFront.intensity = 8.0;
+            underglowLightRear.intensity = 8.0;
+            setTimeout(() => {
+                if (underglowOn) {
+                    underglowLightFront.intensity = 3.5;
+                    underglowLightRear.intensity = 3.5;
+                }
+            }, 2500);
+        });
+
+        // ---------------------------------------------------------------------
+        // 8. RENDER LOOP & IDLE ANIMATION
+        // ---------------------------------------------------------------------
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            // Subtle levitation idle drift
+            carGroup.position.y = Math.sin(elapsedTime * 1.5) * 0.015;
+
+            // Animate underglow pulsing
+            if (underglowOn) {
+                const pulse = 3.2 + Math.sin(elapsedTime * 3) * 0.6;
+                underglowLightFront.intensity = pulse;
+                underglowLightRear.intensity = pulse;
+            }
+
+            if (controls.enabled) {
+                controls.update();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initial trigger
+        updateCameraOnScroll();
+        animate();
+    </script>
+</body>
+</html>

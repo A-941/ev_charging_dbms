@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Settle Payment | EV Charging DBMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div class="bg-success-subtle text-success p-3 rounded-circle me-3">
+                    <i class="fa-solid fa-credit-card fs-4"></i>
+                </div>
+                <div>
+                    <h3 class="fw-bold mb-0">Complete Session & Settle Payment</h3>
+                    <p class="text-muted mb-0">Inserts into <code>CHARGING_SESSIONS</code> and <code>PAYMENTS</code>, releasing port status.</p>
+                </div>
+            </div>
+            <hr>
+
+            {% if bookings %}
+            <form method="POST" action="{{ url_for('new_payment') }}">
+                <!-- Active Booking Selection -->
+                <div class="mb-3">
+                    <label for="booking_id" class="form-label fw-semibold">Select Active Booking</label>
+                    <select class="form-select" id="booking_id" name="booking_id" required>
+                        <option value="" disabled selected>-- Choose an Active Booking --</option>
+                        {% for b in bookings %}
+                            <option value="{{ b.booking_id }}">
+                                Booking #{{ b.booking_id }} | Driver: {{ b.user_name }} (Port #{{ b.port_id }} - {{ b.connector_type }} @ ${{ b.rate_per_kwh }}/kWh)
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Energy Delivered -->
+                <div class="mb-3">
+                    <label for="energy_kwh" class="form-label fw-semibold">Energy Delivered (kWh)</label>
+                    <input type="number" step="0.1" min="0.1" max="150.0" class="form-control" id="energy_kwh" name="energy_kwh" value="38.5" required>
+                    <div class="form-text text-muted">
+                        Total charge will be calculated as: <code>(Energy × Port Tariff Rate) + $2.50 Service Fee</code>.
+                    </div>
+                </div>
+
+                <!-- Session End Time -->
+                <div class="mb-4">
+                    <label for="end_time" class="form-label fw-semibold">Session End Timestamp</label>
+                    <input type="datetime-local" class="form-control" id="end_time" name="end_time" value="{{ now }}" required>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i> Cancel</a>
+                    <button type="submit" class="btn btn-success px-4"><i class="fa-solid fa-receipt me-1"></i> Settle Bill & Release Port</button>
+                </div>
+            </form>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fa-solid fa-circle-info me-2"></i> There are currently no active confirmed bookings ready for completion. <a href="{{ url_for('new_booking') }}" class="alert-link">Create a new booking first</a>.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
