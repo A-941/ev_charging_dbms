@@ -1,114 +1,463 @@
 {% extends "base.html" %}
-{% block title %}Dashboard | EV Charging Network DBMS{% endblock %}
+{% block title %}Ahmedabad EV Network Operations Dashboard | VoltGrid India{% endblock %}
 
 {% block content %}
+<!-- Top Header Banner & Quick Action Buttons -->
 <div class="row mb-4 align-items-center">
-    <div class="col-md-8">
-        <h2 class="fw-bold mb-1"><i class="fa-solid fa-chart-line text-primary me-2"></i>Network Operations Dashboard</h2>
-        <p class="text-muted mb-0">Real-time status of charging infrastructure, slot bookings, and revenue metrics.</p>
+    <div class="col-lg-8">
+        <div class="d-flex align-items-center">
+            <div class="bg-primary-subtle text-primary p-3 rounded-4 me-3 d-none d-sm-block">
+                <i class="fa-solid fa-chart-line fs-3"></i>
+            </div>
+            <div>
+                <h2 class="fw-bold mb-1">
+                    {% if current_user.is_admin %}
+                        <span class="badge bg-danger text-white fs-6 align-middle me-2">ADMIN CONSOLE</span> Ahmedabad Network Operations
+                    {% elif current_user.is_authenticated %}
+                        Welcome back, <span class="text-primary">{{ current_user.name }}</span>!
+                    {% else %}
+                        VoltGrid India - Ahmedabad EV Network
+                    {% endif %}
+                </h2>
+                <p class="text-muted mb-0">
+                    Real-time telemetry across Ahmedabad's fast-charging corridors (Sindhu Bhavan, Prahlad Nagar, Vastrapur, SG Highway, Motera & Maninagar).
+                </p>
+            </div>
+        </div>
     </div>
-    <div class="col-md-4 text-md-end mt-3 mt-md-0">
-        <a href="{{ url_for('new_booking') }}" class="btn btn-primary me-2"><i class="fa-solid fa-plus me-1"></i> Book Slot</a>
-        <a href="{{ url_for('new_payment') }}" class="btn btn-success"><i class="fa-solid fa-receipt me-1"></i> Settle Bill</a>
+    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <a href="{{ url_for('unified_booking_payment', tab='reserve') }}" class="btn btn-primary shadow-sm me-2">
+            <i class="fa-solid fa-calendar-plus me-1"></i> Book Slot
+        </a>
+        <a href="{{ url_for('unified_booking_payment', tab='settle') }}" class="btn btn-success shadow-sm">
+            <i class="fa-solid fa-receipt me-1"></i> Settle Bill (₹)
+        </a>
     </div>
 </div>
 
-<!-- KPI Cards -->
-<div class="row g-3 mb-4">
-    <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="text-muted small fw-semibold text-uppercase">Charging Stations</span>
-                    <h3 class="fw-bold my-1 text-dark">{{ stats.stations }}</h3>
-                    <small class="text-secondary">{{ stats.operators }} Operators Active</small>
+<!-- ========================================================================= -->
+<!-- SECTION 1: LIVE AHMEDABAD EV STATION FINDER (FREE OSM & GPS WIDGET) -->
+<!-- ========================================================================= -->
+<div class="card ahmedabad-hero-card p-4 mb-4 shadow-sm" id="ahmedabad-finder">
+    <div class="row align-items-center mb-3">
+        <div class="col-lg-7">
+            <div class="d-flex align-items-center mb-2">
+                <span class="badge bg-warning text-dark me-2 px-2 py-1 fw-bold"><i class="fa-solid fa-satellite-dish me-1"></i>100% FREE LIVE API</span>
+                <span class="badge bg-info-subtle text-info-emphasis px-2 py-1"><i class="fa-solid fa-map-pin me-1"></i>OpenStreetMap & Nominatim</span>
+            </div>
+            <h4 class="fw-bold text-white mb-1">
+                <i class="fa-solid fa-location-crosshairs text-warning me-2"></i>Live Ahmedabad EV Station Finder
+            </h4>
+            <p class="text-light opacity-75 small mb-0">
+                Discover live charging stations in Ahmedabad sorted by nearest distance ($km$), live port status, and tariff rates in ₹/kWh.
+            </p>
+        </div>
+        <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
+            <button type="button" class="btn btn-warning fw-semibold shadow-sm" onclick="detectGPSLocation()">
+                <i class="fa-solid fa-crosshairs me-1"></i> Detect My Live GPS Location
+            </button>
+        </div>
+    </div>
+
+    <!-- Search Form -->
+    <div class="row g-2 mb-3">
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-white text-secondary border-0"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" class="form-control border-0" id="localitySearchInput" 
+                       placeholder="Enter locality e.g. Sindhu Bhavan, Vastrapur, SG Highway, Motera..." 
+                       value="Sindhu Bhavan Road" onkeydown="if(event.key==='Enter'){ searchAhmedabadStations(); }">
+            </div>
+        </div>
+        <div class="col-md-4">
+            <select class="form-select border-0" id="connectorFilterSelect" onchange="searchAhmedabadStations()">
+                <option value="ALL">All Connectors (CCS2, Type 2, GB/T, CHAdeMO)</option>
+                <option value="CCS2">CCS2 (DC Fast Charger)</option>
+                <option value="Type 2">Type 2 (AC / 2-Wheelers)</option>
+                <option value="GB/T">GB/T (Commercial & 3-Wheelers)</option>
+                <option value="CHAdeMO">CHAdeMO (Fast DC)</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="button" class="btn btn-primary w-100 fw-semibold" onclick="searchAhmedabadStations()">
+                <i class="fa-solid fa-bolt me-1"></i> Find Nearest Hubs
+            </button>
+        </div>
+    </div>
+
+    <!-- Hotspot Quick Filter Badges -->
+    <div class="d-flex flex-wrap align-items-center gap-1 mb-3 small">
+        <span class="text-light opacity-75 me-1"><i class="fa-solid fa-fire text-danger me-1"></i>Ahmedabad Hotspots:</span>
+        {% for spot in ahmedabad_hotspots %}
+            <button type="button" class="btn btn-sm btn-outline-light py-0 px-2 rounded-pill small" 
+                    style="font-size: 0.75rem; border-color: rgba(255,255,255,0.3);" 
+                    onclick="selectHotspot('{{ spot }}')">
+                {{ spot }}
+            </button>
+        {% endfor %}
+    </div>
+
+    <!-- Origin Banner -->
+    <div class="d-flex justify-content-between align-items-center bg-white bg-opacity-10 p-2 rounded-3 small mb-3">
+        <span class="text-light" id="searchOriginLabel">
+            <i class="fa-solid fa-compass text-warning me-1"></i> Origin: <strong>Sindhu Bhavan Road, Ahmedabad</strong>
+        </span>
+        <span class="badge bg-light text-dark font-monospace" id="stationCountBadge">Searching nearby hubs...</span>
+    </div>
+
+    <!-- Horizontal Cards Matrix -->
+    <div class="row g-3" id="ahmedabadStationsGrid">
+        {% for st in initial_ahmedabad_stations %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 p-3 bg-white text-dark shadow-sm border-0">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="badge bg-dark font-monospace">{{ st.id }}</span>
+                    {% if st.available_ports > 0 %}
+                        <span class="badge badge-available"><i class="fa-solid fa-circle-check me-1"></i>{{ st.available_ports }} / {{ st.total_ports }} Free</span>
+                    {% else %}
+                        <span class="badge bg-danger text-white">Full</span>
+                    {% endif %}
                 </div>
-                <div class="bg-primary-subtle text-primary p-3 rounded-circle fs-4">
+                <h6 class="fw-bold mb-1 text-dark">{{ st.name }}</h6>
+                <p class="text-muted small mb-2"><i class="fa-solid fa-location-arrow me-1 text-primary"></i>{{ st.locality }}</p>
+                <div class="d-flex justify-content-between align-items-center my-2 p-2 bg-light rounded">
+                    <div>
+                        <small class="text-muted d-block">Tariff Rate</small>
+                        <strong class="text-primary font-monospace">₹{{ "{:,.2f}".format(st.rate_per_kwh) }}</strong><small class="text-muted">/kWh</small>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted d-block">Rating</small>
+                        <span class="text-warning fw-bold"><i class="fa-solid fa-star"></i> {{ st.rating }}</span>
+                    </div>
+                </div>
+                <div class="small text-secondary mb-3">
+                    <i class="fa-solid fa-plug me-1"></i>{{ st.connector_types | join(', ') }}
+                </div>
+                <div class="mt-auto">
+                    <a href="{{ url_for('unified_booking_payment') }}?tab=reserve&station_id={{ st.db_station_id }}" class="btn btn-sm btn-primary w-100">
+                        <i class="fa-solid fa-bolt me-1"></i> Reserve Slot at this Hub
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- KPI METRIC STRIP (INR & FULL WIDTH) -->
+<!-- ========================================================================= -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card stat-card p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-muted small fw-semibold text-uppercase">Ahmedabad Hubs</span>
+                    <h3 class="fw-bold my-1 text-dark">{{ stats.stations }}</h3>
+                    <small class="text-secondary"><i class="fa-solid fa-building-flag me-1"></i>{{ stats.operators }} Active Networks</small>
+                </div>
+                <div class="bg-primary-subtle text-primary p-3 rounded-3 fs-4">
                     <i class="fa-solid fa-charging-station"></i>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center">
+
+    <div class="col-6 col-md-3">
+        <div class="card stat-card p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <span class="text-muted small fw-semibold text-uppercase">Total Ports</span>
+                    <span class="text-muted small fw-semibold text-uppercase">Total Charging Ports</span>
                     <h3 class="fw-bold my-1 text-dark">{{ stats.ports }}</h3>
-                    <small class="text-success fw-semibold"><i class="fa-solid fa-circle-check me-1"></i>{{ stats.available_ports }} Available</small>
+                    <div class="small mt-1">
+                        <span class="text-success fw-bold me-2"><i class="fa-solid fa-circle-check me-1"></i>{{ stats.available_ports }} Free</span>
+                        <span class="text-warning fw-semibold"><i class="fa-solid fa-circle-dot me-1"></i>{{ stats.occupied_ports }} In Use</span>
+                    </div>
                 </div>
-                <div class="bg-success-subtle text-success p-3 rounded-circle fs-4">
+                <div class="bg-success-subtle text-success p-3 rounded-3 fs-4">
                     <i class="fa-solid fa-plug-circle-bolt"></i>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center">
+
+    <div class="col-6 col-md-3">
+        <div class="card stat-card p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <span class="text-muted small fw-semibold text-uppercase">Energy Dispensed</span>
-                    <h3 class="fw-bold my-1 text-dark">{{ stats.energy_kwh }}</h3>
-                    <small class="text-secondary">{{ stats.sessions }} Sessions Logged</small>
+                    <h3 class="fw-bold my-1 text-dark">{{ "{:,.1f}".format(stats.energy_kwh) }} <span class="fs-6 fw-normal text-muted">kWh</span></h3>
+                    <small class="text-secondary"><i class="fa-solid fa-bolt me-1"></i>{{ stats.sessions }} Completed Sessions</small>
                 </div>
-                <div class="bg-warning-subtle text-warning p-3 rounded-circle fs-4">
-                    <i class="fa-solid fa-bolt"></i>
+                <div class="bg-warning-subtle text-warning p-3 rounded-3 fs-4">
+                    <i class="fa-solid fa-battery-half"></i>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card p-3 bg-white">
-            <div class="d-flex justify-content-between align-items-center">
+
+    <div class="col-6 col-md-3">
+        <div class="card stat-card p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <span class="text-muted small fw-semibold text-uppercase">Gross Revenue</span>
-                    <h3 class="fw-bold my-1 text-dark">${{ stats.revenue }}</h3>
-                    <small class="text-secondary">{{ stats.bookings }} Bookings Processed</small>
+                    <span class="text-muted small fw-semibold text-uppercase">Gross Revenue (INR)</span>
+                    <h3 class="fw-bold my-1 text-dark">₹{{ "{:,.2f}".format(stats.revenue) }}</h3>
+                    <small class="text-secondary"><i class="fa-solid fa-ticket me-1"></i>{{ stats.bookings }} Bookings Settled</small>
                 </div>
-                <div class="bg-info-subtle text-info p-3 rounded-circle fs-4">
-                    <i class="fa-solid fa-wallet"></i>
+                <div class="bg-info-subtle text-info p-3 rounded-3 fs-4">
+                    <i class="fa-solid fa-indian-rupee-sign"></i>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Main Tables Row -->
-<div class="row g-4">
-    <!-- Left Column: Live Station Status View -->
+<!-- ========================================================================= -->
+<!-- SECTION 2: FULL-WIDTH HORIZONTAL LIVE STATION AVAILABILITY MATRIX -->
+<!-- ========================================================================= -->
+<div class="card p-4 mb-4 shadow-sm">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+        <div>
+            <h5 class="fw-bold mb-1">
+                <i class="fa-solid fa-map-location-dot text-primary me-2"></i>Live Station Availability & Port Health Status
+            </h5>
+            <p class="text-muted small mb-0">Full-width live monitoring matrix across Indian operators (Tata Power, Jio-bp, Statiq, Adani, ChargeZone).</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge badge-available px-2 py-1"><i class="fa-solid fa-circle-check me-1"></i>Available</span>
+            <span class="badge badge-occupied px-2 py-1"><i class="fa-solid fa-circle-dot me-1"></i>Occupied</span>
+            <span class="badge badge-reserved px-2 py-1"><i class="fa-solid fa-clock me-1"></i>Reserved</span>
+            <span class="badge badge-faulted px-2 py-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>Faulted</span>
+            <span class="badge bg-light text-dark border px-2 py-1">View: <code>v_station_live_status</code></span>
+        </div>
+    </div>
+
+    <!-- Full-Width Horizontal Table View -->
+    <div class="table-responsive">
+        <table class="table table-hover table-custom align-middle mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 90px;">Station</th>
+                    <th>Operator / Network</th>
+                    <th>Corridor Location</th>
+                    <th>Total Ports</th>
+                    <th>Current Port Breakdown</th>
+                    <th>Connectors</th>
+                    <th>Rating</th>
+                    <th class="text-end">Quick Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in stations %}
+                <tr>
+                    <td>
+                        <span class="badge bg-dark text-white font-monospace px-2 py-1">STN-{{ "%03d"|format(s.station_id) }}</span>
+                    </td>
+                    <td>
+                        <strong>{{ s.operator_name }}</strong>
+                    </td>
+                    <td>
+                        <span class="small text-muted font-monospace"><i class="fa-solid fa-location-arrow text-secondary me-1"></i>{{ s.latitude }}, {{ s.longitude }}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary font-monospace">{{ s.total_ports }} Ports</span>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-wrap gap-1 align-items-center">
+                            {% if s.available_ports > 0 %}
+                                <span class="badge badge-available"><i class="fa-solid fa-circle-check me-1"></i>{{ s.available_ports }} Free</span>
+                            {% else %}
+                                <span class="badge bg-danger text-white">Full</span>
+                            {% endif %}
+
+                            {% if s.occupied_ports > 0 %}
+                                <span class="badge badge-occupied">{{ s.occupied_ports }} In Use</span>
+                            {% endif %}
+
+                            {% if s.reserved_ports > 0 %}
+                                <span class="badge badge-reserved">{{ s.reserved_ports }} Reserved</span>
+                            {% endif %}
+
+                            {% if s.offline_ports > 0 %}
+                                <span class="badge badge-faulted">{{ s.offline_ports }} Offline</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <small class="text-secondary fw-semibold">{{ s.connector_types or 'CCS2, Type 2' }}</small>
+                    </td>
+                    <td>
+                        <span class="text-warning"><i class="fa-solid fa-star"></i></span>
+                        <strong>{{ s.avg_rating }}</strong> <span class="text-muted small">/ 5</span>
+                    </td>
+                    <td class="text-end">
+                        {% if s.available_ports > 0 %}
+                            <a href="{{ url_for('unified_booking_payment', tab='reserve', station_id=s.station_id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fa-solid fa-bolt me-1"></i> Book
+                            </a>
+                        {% else %}
+                            <button class="btn btn-sm btn-outline-secondary" disabled>Occupied</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- SECTION 3: FULL-WIDTH HORIZONTAL RECENT SLOT BOOKINGS & SESSIONS -->
+<!-- ========================================================================= -->
+<div class="card p-4 mb-4 shadow-sm">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+        <div>
+            <h5 class="fw-bold mb-1">
+                <i class="fa-solid fa-clock-rotate-left text-success me-2"></i>
+                {% if current_user.is_admin %}
+                    All Recent Network Slot Bookings & Sessions
+                {% elif current_user.is_authenticated %}
+                    My Recent Bookings & Charging Sessions
+                {% else %}
+                    Recent Network Slot Bookings (Real-Time Feed)
+                {% endif %}
+            </h5>
+            <p class="text-muted small mb-0">Live transaction lifecycle from reservation to completion and billing in INR (₹).</p>
+        </div>
+        <div>
+            <a href="{{ url_for('unified_booking_payment', tab='reserve') }}" class="btn btn-sm btn-primary me-2">
+                <i class="fa-solid fa-plus me-1"></i> New Booking
+            </a>
+            <a href="{{ url_for('unified_booking_payment', tab='settle') }}" class="btn btn-sm btn-outline-success">
+                <i class="fa-solid fa-credit-card me-1"></i> Settle Session
+            </a>
+        </div>
+    </div>
+
+    <!-- Full-Width Horizontal Table View -->
+    <div class="table-responsive">
+        <table class="table table-hover table-custom align-middle mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 100px;">Booking #</th>
+                    <th>Customer Name</th>
+                    <th>Contact Phone</th>
+                    <th>Station & Port</th>
+                    <th>Tariff Rate</th>
+                    <th>Start Time</th>
+                    <th>Energy / Paid</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if bookings %}
+                    {% for b in bookings %}
+                    <tr>
+                        <td>
+                            <strong>#{{ "%04d"|format(b.booking_id) }}</strong>
+                        </td>
+                        <td>
+                            <span class="fw-semibold text-dark">{{ b.user_name }}</span>
+                        </td>
+                        <td>
+                            <small class="text-muted font-monospace">{{ b.phone }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border">Port #{{ b.port_id }}</span>
+                            <span class="small text-secondary ms-1">({{ b.company_name or 'Station' }} - {{ b.connector_type }})</span>
+                        </td>
+                        <td>
+                            <strong class="text-primary">₹{{ b.rate_per_kwh or '18.50' }}</strong><small class="text-muted">/kWh</small>
+                        </td>
+                        <td>
+                            <small class="text-muted">{{ b.start_time }}</small>
+                        </td>
+                        <td>
+                            {% if b.energy_kwh %}
+                                <span class="badge bg-info-subtle text-info-emphasis">{{ b.energy_kwh }} kWh</span>
+                                {% if b.paid_amount %}
+                                    <span class="badge bg-success-subtle text-success-emphasis fw-bold">₹{{ b.paid_amount }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted small">In Session</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if b.status == 'Confirmed' %}
+                                <span class="badge badge-reserved"><i class="fa-solid fa-clock me-1"></i>Confirmed</span>
+                            {% elif b.status == 'In Progress' %}
+                                <span class="badge badge-occupied"><i class="fa-solid fa-bolt me-1"></i>In Progress</span>
+                            {% elif b.status == 'Completed' %}
+                                <span class="badge badge-available"><i class="fa-solid fa-check me-1"></i>Completed</span>
+                            {% elif b.status == 'Cancelled' %}
+                                <span class="badge badge-faulted"><i class="fa-solid fa-xmark me-1"></i>Cancelled</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ b.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if b.status in ['Confirmed', 'In Progress'] %}
+                                <a href="{{ url_for('unified_booking_payment', tab='settle', highlight=b.booking_id) }}" class="btn btn-sm btn-success py-1 px-2">
+                                    <i class="fa-solid fa-receipt me-1"></i> Settle
+                                </a>
+                            {% elif b.status == 'Completed' %}
+                                <a href="{{ url_for('unified_booking_payment', tab='payments') }}" class="btn btn-sm btn-outline-secondary py-1 px-2">
+                                    <i class="fa-solid fa-eye me-1"></i> Receipt
+                                </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">
+                            <i class="fa-solid fa-calendar-xmark fs-3 d-block mb-2 text-secondary"></i>
+                            No booking records found. <a href="{{ url_for('unified_booking_payment', tab='reserve') }}">Book your first EV charging slot now</a>.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- SECTION 4: ADMIN-EXCLUSIVE OPERATOR REVENUE & INCIDENT TRIAGE -->
+<!-- ========================================================================= -->
+{% if current_user.is_admin %}
+<div class="row g-4 mb-4">
+    <!-- Operator Financial Breakdown -->
     <div class="col-lg-7">
-        <div class="card p-3 h-100">
+        <div class="card p-4 h-100 shadow-sm">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0"><i class="fa-solid fa-map-location-dot text-primary me-2"></i>Live Station Availability</h5>
-                <span class="badge bg-light text-dark border">View: v_station_live_status</span>
+                <h5 class="fw-bold mb-0">
+                    <i class="fa-solid fa-chart-pie text-info me-2"></i>Network Operator Revenue & Energy Share
+                </h5>
+                <span class="badge bg-light text-dark border">View: <code>v_operator_financial_summary</code></span>
             </div>
             <div class="table-responsive">
-                <table class="table table-hover table-custom align-middle">
+                <table class="table table-hover table-custom align-middle mb-0">
                     <thead>
                         <tr>
-                            <th>Station</th>
-                            <th>Operator</th>
+                            <th>Operator Network</th>
+                            <th>Hubs</th>
                             <th>Ports</th>
-                            <th>Available</th>
-                            <th>Rating</th>
+                            <th>Sessions</th>
+                            <th>Energy (kWh)</th>
+                            <th>Gross Revenue (₹)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for s in stations %}
+                        {% for op in operator_financials %}
                         <tr>
-                            <td><strong>#{{ s.station_id }}</strong></td>
-                            <td>{{ s.operator_name }}</td>
-                            <td><span class="badge bg-secondary">{{ s.total_ports }}</span></td>
+                            <td><strong>{{ op.company_name }}</strong></td>
+                            <td><span class="badge bg-light text-dark border">{{ op.stations_managed }}</span></td>
+                            <td><span class="badge bg-secondary">{{ op.total_ports_deployed }}</span></td>
+                            <td>{{ op.total_completed_sessions }}</td>
+                            <td>{{ "{:,.1f}".format(op.total_energy_sold_kwh or 0) }}</td>
                             <td>
-                                {% if s.available_ports > 0 %}
-                                    <span class="badge bg-success">{{ s.available_ports }} Free</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Full</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="text-warning"><i class="fa-solid fa-star"></i></span>
-                                <strong>{{ s.avg_rating or 'N/A' }}</strong>
+                                <strong class="text-success">₹{{ "{:,.2f}".format(op.gross_revenue or 0) }}</strong>
                             </td>
                         </tr>
                         {% endfor %}
@@ -118,49 +467,191 @@
         </div>
     </div>
 
-    <!-- Right Column: Recent Bookings -->
+    <!-- Live Maintenance Incident Triage -->
     <div class="col-lg-5">
-        <div class="card p-3 h-100">
+        <div class="card p-4 h-100 shadow-sm">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0"><i class="fa-solid fa-clock-rotate-left text-success me-2"></i>Recent Slot Bookings</h5>
-                <a href="{{ url_for('new_booking') }}" class="btn btn-sm btn-outline-primary">+ New</a>
+                <h5 class="fw-bold mb-0">
+                    <i class="fa-solid fa-wrench text-danger me-2"></i>Incident Triage & Faults
+                </h5>
+                <a href="{{ url_for('new_complaint') }}" class="btn btn-sm btn-outline-danger">+ Report</a>
             </div>
             <div class="table-responsive">
-                <table class="table table-hover table-custom align-middle">
+                <table class="table table-hover table-custom align-middle mb-0">
                     <thead>
                         <tr>
-                            <th>Booking</th>
-                            <th>Customer</th>
-                            <th>Port / Type</th>
-                            <th>Status</th>
+                            <th>Ticket</th>
+                            <th>Port / Station</th>
+                            <th>Issue Summary</th>
+                            <th class="text-end">Triage</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for b in bookings %}
-                        <tr>
-                            <td><strong>#{{ b.booking_id }}</strong></td>
-                            <td>{{ b.user_name }}</td>
-                            <td>
-                                <span class="badge bg-light text-dark border">#{{ b.port_id }}</span>
-                                <small class="text-muted">{{ b.connector_type }}</small>
-                            </td>
-                            <td>
-                                {% if b.status == 'Confirmed' %}
-                                    <span class="badge bg-primary">Confirmed</span>
-                                {% elif b.status == 'Completed' %}
-                                    <span class="badge bg-success">Completed</span>
-                                {% elif b.status == 'Cancelled' %}
-                                    <span class="badge bg-danger">Cancelled</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">{{ b.status }}</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
+                        {% if open_complaints %}
+                            {% for c in open_complaints %}
+                            <tr>
+                                <td><span class="badge bg-danger">#{{ c.complaint_id }}</span></td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">Port #{{ c.port_id }}</span>
+                                    <small class="d-block text-muted">{{ c.company_name }}</small>
+                                </td>
+                                <td><small class="text-dark">{{ c.issue | truncate(45) }}</small></td>
+                                <td class="text-end">
+                                    <form method="POST" action="{{ url_for('resolve_complaint', complaint_id=c.complaint_id) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-success py-0 px-2" title="Resolve and mark Port Available">
+                                            <i class="fa-solid fa-check me-1"></i> Resolve
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">
+                                    <i class="fa-solid fa-shield-check text-success fs-3 d-block mb-1"></i>
+                                    All ports operational! No open incidents.
+                                </td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Search Ahmedabad EV stations via Free API endpoint (/api/nearest-stations)
+function searchAhmedabadStations(customLat, customLon) {
+    const locality = document.getElementById('localitySearchInput').value;
+    const connector = document.getElementById('connectorFilterSelect').value;
+    const grid = document.getElementById('ahmedabadStationsGrid');
+    const originLabel = document.getElementById('searchOriginLabel');
+    const countBadge = document.getElementById('stationCountBadge');
+
+    grid.innerHTML = `
+        <div class="col-12 text-center py-5 text-white">
+            <div class="spinner-border text-warning mb-2" role="status"></div>
+            <p class="small opacity-75">Querying OpenStreetMap & calculating distances from ${locality || 'Ahmedabad'}...</p>
+        </div>
+    `;
+
+    const payload = {
+        locality: locality,
+        connector: connector
+    };
+    if (customLat && customLon) {
+        payload.lat = customLat;
+        payload.lon = customLon;
+    }
+
+    fetch('/api/nearest-stations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.stations || data.stations.length === 0) {
+            grid.innerHTML = `
+                <div class="col-12 text-center py-4 text-white">
+                    <p class="mb-0">No charging stations found matching '${locality}'. Try searching another Ahmedabad area.</p>
+                </div>
+            `;
+            countBadge.innerText = '0 Hubs Found';
+            return;
+        }
+
+        originLabel.innerHTML = `<i class="fa-solid fa-compass text-warning me-1"></i> Origin: <strong>${data.search_origin.name}</strong>`;
+        countBadge.innerText = `${data.count} Hubs Ranked Nearest First`;
+
+        let html = '';
+        data.stations.forEach(st => {
+            const availBadge = st.available_ports > 0 
+                ? `<span class="badge badge-available"><i class="fa-solid fa-circle-check me-1"></i>${st.available_ports} / ${st.total_ports} Free</span>`
+                : `<span class="badge bg-danger text-white">Full</span>`;
+
+            html += `
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 p-3 bg-white text-dark shadow-sm border-0">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-dark font-monospace">${st.id}</span>
+                            ${availBadge}
+                        </div>
+                        <h6 class="fw-bold mb-1 text-dark">${st.name}</h6>
+                        <p class="text-muted small mb-2">
+                            <i class="fa-solid fa-location-arrow me-1 text-primary"></i>
+                            <strong>${st.distance_km} km away</strong> • ${st.locality}
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center my-2 p-2 bg-light rounded">
+                            <div>
+                                <small class="text-muted d-block">Tariff Rate</small>
+                                <strong class="text-primary font-monospace">₹${parseFloat(st.rate_per_kwh).toFixed(2)}</strong><small class="text-muted">/kWh</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted d-block">Rating</small>
+                                <span class="text-warning fw-bold"><i class="fa-solid fa-star"></i> ${st.rating}</span>
+                            </div>
+                        </div>
+                        <div class="small text-secondary mb-3">
+                            <i class="fa-solid fa-plug me-1"></i>${st.connector_types.join(', ')}
+                        </div>
+                        <div class="mt-auto">
+                            ${st.available_ports > 0 
+                                ? `<a href="/booking-payment?tab=reserve&station_id=${st.db_station_id || 1}" class="btn btn-sm btn-primary w-100"><i class="fa-solid fa-bolt me-1"></i> Reserve Slot at this Hub</a>`
+                                : `<button class="btn btn-sm btn-secondary w-100" disabled>Fully Occupied</button>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        grid.innerHTML = html;
+    })
+    .catch(err => {
+        grid.innerHTML = `<div class="col-12 text-center text-warning">Error fetching live stations. Please retry.</div>`;
+    });
+}
+
+function selectHotspot(name) {
+    document.getElementById('localitySearchInput').value = name;
+    searchAhmedabadStations();
+}
+
+// HTML5 Geolocation Auto-Detection
+function detectGPSLocation() {
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser.");
+        return;
+    }
+
+    const countBadge = document.getElementById('stationCountBadge');
+    countBadge.innerText = 'Detecting GPS...';
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            document.getElementById('localitySearchInput').value = `GPS (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+            searchAhmedabadStations(lat, lon);
+        },
+        (error) => {
+            alert("Unable to retrieve your location: " + error.message + ". Searching Sindhu Bhavan Road instead.");
+            searchAhmedabadStations();
+        },
+        { timeout: 8000 }
+    );
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    searchAhmedabadStations();
+});
+</script>
 {% endblock %}

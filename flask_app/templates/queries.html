@@ -1,17 +1,27 @@
 {% extends "base.html" %}
-{% block title %}SQL Workbench | EV Charging DBMS{% endblock %}
+{% block title %}SQL Workbench (Admin) | VoltGrid India EV DBMS{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <div class="card p-4 mb-4">
-            <div class="d-flex align-items-center mb-3">
-                <div class="bg-info-subtle text-info p-3 rounded-circle me-3">
-                    <i class="fa-solid fa-terminal fs-4"></i>
+        <div class="card p-4 mb-4 shadow-sm">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+                <div class="d-flex align-items-center">
+                    <div class="bg-dark text-warning p-3 rounded-3 me-3">
+                        <i class="fa-solid fa-terminal fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <h3 class="fw-bold mb-0">SQL Query Execution Workbench</h3>
+                            <span class="badge bg-danger"><i class="fa-solid fa-shield-halved me-1"></i>ADMIN ONLY</span>
+                        </div>
+                        <p class="text-muted small mb-0">Direct relational query console connected to <code>ev_charging.db</code> with Indian localized schema and views.</p>
+                    </div>
                 </div>
                 <div>
-                    <h3 class="fw-bold mb-0">Interactive SQL Query Workbench</h3>
-                    <p class="text-muted mb-0">Execute SQL queries directly against <code>ev_charging.db</code>.</p>
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis border px-3 py-2">
+                        <i class="fa-solid fa-database me-1"></i> 12 Tables & 3 Standard Views
+                    </span>
                 </div>
             </div>
             <hr>
@@ -19,7 +29,9 @@
             <form method="POST" action="{{ url_for('queries') }}">
                 <div class="row g-3 mb-3">
                     <div class="col-md-8">
-                        <label for="preset_choice" class="form-label fw-semibold">Pre-loaded Syllabus Demonstration Queries</label>
+                        <label for="preset_choice" class="form-label fw-semibold">
+                            <i class="fa-solid fa-book-bookmark text-primary me-1"></i> Syllabus & Relational Preset Queries (INR & Indian Hubs)
+                        </label>
                         <select class="form-select" id="preset_choice" name="preset_choice" onchange="window.location.href='{{ url_for('queries') }}?preset=' + encodeURIComponent(this.value)">
                             {% for preset_name, _ in presets.items() %}
                                 <option value="{{ preset_name }}" {% if preset_name == selected_preset %}selected{% endif %}>
@@ -29,35 +41,50 @@
                         </select>
                     </div>
                     <div class="col-md-4 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100 py-2">
-                            <i class="fa-solid fa-play me-1"></i> Execute SQL
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                            <i class="fa-solid fa-play me-1"></i> Execute Query (Ctrl+Enter)
                         </button>
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label for="sql_query" class="form-label fw-semibold">SQL Query Text</label>
-                    <textarea class="form-control font-monospace" id="sql_query" name="sql_query" rows="6" required>{{ query_sql }}</textarea>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label for="sql_query" class="form-label fw-semibold mb-0">SQL Query Editor</label>
+                        <small class="text-muted font-monospace">Target: SQLite 3.x</small>
+                    </div>
+                    <textarea class="form-control font-monospace p-3 bg-dark text-white border-0 rounded-3" 
+                              id="sql_query" name="sql_query" rows="7" 
+                              style="font-size: 0.9rem; line-height: 1.5;" required>{{ query_sql }}</textarea>
                 </div>
             </form>
         </div>
 
         {% if error %}
-            <div class="alert alert-danger shadow-sm">
-                <i class="fa-solid fa-circle-exclamation me-2"></i> <strong>SQL Execution Error:</strong> {{ error }}
+            <div class="alert alert-danger shadow-sm border-0 rounded-3">
+                <div class="d-flex align-items-start">
+                    <i class="fa-solid fa-circle-exclamation fs-4 me-3 text-danger mt-1"></i>
+                    <div>
+                        <h6 class="fw-bold mb-1">SQL Execution Error</h6>
+                        <pre class="mb-0 small text-danger-emphasis font-monospace">{{ error }}</pre>
+                    </div>
+                </div>
             </div>
         {% elif results %}
-            <div class="card p-4">
+            <div class="card p-4 shadow-sm">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-table text-primary me-2"></i>Query Result Set</h5>
-                    <span class="badge bg-success py-2 px-3">{{ row_count }} Rows Returned</span>
+                    <h5 class="fw-bold mb-0">
+                        <i class="fa-solid fa-table text-primary me-2"></i>Query Result Set
+                    </h5>
+                    <span class="badge bg-success py-2 px-3">
+                        <i class="fa-solid fa-check me-1"></i> {{ row_count }} Rows Returned
+                    </span>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover table-bordered table-custom align-middle">
+                    <table class="table table-striped table-hover table-bordered table-custom align-middle mb-0">
                         <thead>
                             <tr>
                                 {% for col in columns %}
-                                    <th>{{ col }}</th>
+                                    <th class="font-monospace">{{ col }}</th>
                                 {% endfor %}
                             </tr>
                         </thead>
@@ -65,7 +92,13 @@
                             {% for row in results %}
                             <tr>
                                 {% for val in row %}
-                                    <td>{{ val }}</td>
+                                    <td class="font-monospace small">
+                                        {% if val is none %}
+                                            <span class="badge bg-light text-muted border">NULL</span>
+                                        {% else %}
+                                            {{ val }}
+                                        {% endif %}
+                                    </td>
                                 {% endfor %}
                             </tr>
                             {% endfor %}
@@ -76,4 +109,15 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Shortcut to execute SQL via Ctrl+Enter
+document.getElementById('sql_query').addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        this.form.submit();
+    }
+});
+</script>
 {% endblock %}

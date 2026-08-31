@@ -131,3 +131,22 @@ CREATE TABLE IF NOT EXISTS COMPLAINTS (
         FOREIGN KEY (port_id) REFERENCES PORTS(port_id)
         ON UPDATE CASCADE ON DELETE CASCADE
 );
+
+-- 12. REFUNDS
+-- Refund transactions issued for cancelled bookings or billing disputes
+CREATE TABLE IF NOT EXISTS REFUNDS (
+    refund_id INT PRIMARY KEY,
+    payment_id INT NOT NULL,
+    booking_id INT NOT NULL,
+    amount DECIMAL(8, 2) NOT NULL CHECK (amount >= 0.0),
+    reason TEXT NOT NULL,
+    refund_time TIMESTAMP NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'Processed' CHECK (status IN ('Processed', 'Pending', 'Rejected')),
+    CONSTRAINT fk_refund_payment
+        FOREIGN KEY (payment_id) REFERENCES PAYMENTS(payment_id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_refund_booking
+        FOREIGN KEY (booking_id) REFERENCES BOOKINGS(booking_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+

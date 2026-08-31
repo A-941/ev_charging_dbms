@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Sign In & Authentication | VoltGrid India EV DBMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center my-4">
+    <div class="col-md-9 col-lg-7 col-xl-6">
+        <div class="card shadow-sm border-0 p-4 p-md-5">
+            <!-- Header Icon & Branding -->
+            <div class="text-center mb-4">
+                <div class="bg-primary-subtle text-primary p-3 rounded-circle d-inline-flex align-items-center justify-content-center mb-2 shadow-sm" style="width: 64px; height: 64px;">
+                    <i class="fa-solid fa-bolt-lightning fs-2 text-warning"></i>
+                </div>
+                <h3 class="fw-bold mb-1">VoltGrid India Portal</h3>
+                <p class="text-muted small">Role-Based Access Control (RBAC) & Driver Authentication System</p>
+            </div>
+
+            <!-- Login Navigation Tabs -->
+            <ul class="nav nav-pills nav-fill mb-4 bg-light p-1 rounded-pill" id="authTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link rounded-pill fw-semibold py-2 {% if active_tab == 'user' %}active{% endif %}" id="user-tab" data-bs-toggle="pill" data-bs-target="#user-pane" type="button" role="tab">
+                        <i class="fa-solid fa-user me-1"></i> Driver Login
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link rounded-pill fw-semibold py-2 {% if active_tab == 'admin' %}active{% endif %}" id="admin-tab" data-bs-toggle="pill" data-bs-target="#admin-pane" type="button" role="tab">
+                        <i class="fa-solid fa-shield-halved me-1 text-danger"></i> Admin Portal
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link rounded-pill fw-semibold py-2 {% if active_tab == 'register' %}active{% endif %}" id="register-tab" data-bs-toggle="pill" data-bs-target="#register-pane" type="button" role="tab">
+                        <i class="fa-solid fa-user-plus me-1 text-success"></i> Register
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="authTabContent">
+
+                <!-- 1. DRIVER LOGIN TAB -->
+                <div class="tab-pane fade {% if active_tab == 'user' %}show active{% endif %}" id="user-pane" role="tabpanel">
+                    <form method="POST" action="{{ url_for('login') }}">
+                        <input type="hidden" name="login_type" value="user">
+
+                        <div class="mb-3">
+                            <label for="user_identifier" class="form-label fw-semibold">
+                                Registered Mobile Number or Name
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fa-solid fa-phone text-secondary"></i></span>
+                                <input type="text" class="form-control" id="user_identifier" name="user_identifier" 
+                                       placeholder="e.g. +91-98765-43210 or Aarav Patel" 
+                                       value="{{ prefill }}" required autofocus>
+                            </div>
+                            <div class="form-text text-muted">
+                                Enter your Indian mobile number or driver name saved in <code>USERS</code> table.
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold mb-3">
+                            <i class="fa-solid fa-right-to-bracket me-1"></i> Sign In to Driver Console
+                        </button>
+                    </form>
+
+                    <div class="border-top pt-3 mt-3">
+                        <span class="small text-muted d-block mb-2 fw-semibold">⚡ Quick Demo Driver Accounts:</span>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for u in sample_users %}
+                                <form method="POST" action="{{ url_for('login') }}" class="d-inline">
+                                    <input type="hidden" name="login_type" value="quick_user">
+                                    <input type="hidden" name="demo_user_id" value="{{ u.user_id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary py-1 px-2">
+                                        <i class="fa-solid fa-user me-1 text-success"></i>{{ u.name }}
+                                    </button>
+                                </form>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. ADMIN PORTAL TAB -->
+                <div class="tab-pane fade {% if active_tab == 'admin' %}show active{% endif %}" id="admin-pane" role="tabpanel">
+                    <div class="alert alert-danger-subtle border border-danger-subtle p-2 small mb-3 text-danger-emphasis">
+                        <i class="fa-solid fa-lock me-1"></i>
+                        Administrative portal grants access to SQL Workbench, raw database execution, and incident triage.
+                    </div>
+
+                    <form method="POST" action="{{ url_for('login') }}">
+                        <input type="hidden" name="login_type" value="admin">
+
+                        <div class="mb-3">
+                            <label for="admin_username" class="form-label fw-semibold">Admin Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fa-solid fa-user-shield text-danger"></i></span>
+                                <input type="text" class="form-control" id="admin_username" name="admin_username" value="admin" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="admin_password" class="form-label fw-semibold">Master Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fa-solid fa-key text-secondary"></i></span>
+                                <input type="password" class="form-control" id="admin_password" name="admin_password" value="admin123" required>
+                            </div>
+                            <div class="form-text text-muted">
+                                Demo credentials: <code>admin</code> / <code>admin123</code>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-danger w-100 py-2 fw-semibold">
+                            <i class="fa-solid fa-shield-halved me-1"></i> Authenticate as Administrator
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 3. REGISTER NEW DRIVER TAB -->
+                <div class="tab-pane fade {% if active_tab == 'register' %}show active{% endif %}" id="register-pane" role="tabpanel">
+                    <form method="POST" action="{{ url_for('login') }}">
+                        <input type="hidden" name="login_type" value="register">
+
+                        <div class="mb-3">
+                            <label for="new_name" class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="new_name" name="new_name" placeholder="e.g. Rohan Sharma" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="new_phone" class="form-label fw-semibold">Mobile Number (+91) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="new_phone" name="new_phone" placeholder="e.g. 9876543210" required>
+                        </div>
+
+                        <div class="row g-2 mb-4">
+                            <div class="col-6">
+                                <label for="vehicle_type" class="form-label fw-semibold small">Vehicle Class</label>
+                                <select class="form-select form-select-sm" id="vehicle_type" name="vehicle_type">
+                                    <option value="SUV" selected>SUV (Tata Nexon)</option>
+                                    <option value="Hatchback">Hatchback (Tiago EV)</option>
+                                    <option value="Sedan">Sedan (BYD Seal)</option>
+                                    <option value="2-Wheeler">2-Wheeler (Ola / Ather)</option>
+                                    <option value="3-Wheeler">3-Wheeler (Treo Zor)</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label for="connector_needed" class="form-label fw-semibold small">Connector</label>
+                                <select class="form-select form-select-sm" id="connector_needed" name="connector_needed">
+                                    <option value="CCS2" selected>CCS2 (DC Fast)</option>
+                                    <option value="Type 2">Type 2 (AC)</option>
+                                    <option value="GB/T">GB/T</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100 py-2 fw-semibold">
+                            <i class="fa-solid fa-user-check me-1"></i> Register & Instant Login
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

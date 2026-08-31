@@ -48,6 +48,20 @@ BEGIN
     WHERE port_id = NEW.port_id;
 END;
 
+-- Trigger D: Automatically restore PORT to 'Available' when a COMPLAINT is marked 'Resolved' or 'Closed'
+DROP TRIGGER IF EXISTS trg_port_available_on_complaint_resolved;
+
+CREATE TRIGGER trg_port_available_on_complaint_resolved
+AFTER UPDATE OF status ON COMPLAINTS
+FOR EACH ROW
+WHEN NEW.status IN ('Resolved', 'Closed')
+BEGIN
+    UPDATE PORTS
+    SET status = 'Available'
+    WHERE port_id = NEW.port_id;
+END;
+
+
 
 -- ----------------------------------------------------------------------------
 -- 2. STORED FUNCTIONS & PROCEDURES (MySQL / PostgreSQL PL/pgSQL Specification)
