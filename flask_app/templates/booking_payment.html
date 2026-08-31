@@ -1,0 +1,574 @@
+{% extends "base.html" %}
+{% block title %}Book, Settle & Refund | VoltGrid India EV DBMS{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <h2 class="fw-bold mb-1">
+            <i class="fa-solid fa-charging-station text-primary me-2"></i>Unified EV Charging & Settlement Lifecycle
+        </h2>
+        <p class="text-muted mb-0">
+            End-to-end transaction management: Reserve slot ➔ Dispense & Settle Session (₹) ➔ View Receipts & Process Refunds.
+        </p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Workflow Tab Navigation -->
+<ul class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded-4 shadow-sm border" id="lifecycleTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link py-3 fw-semibold {% if active_tab == 'reserve' %}active{% endif %}" id="reserve-tab" data-bs-toggle="pill" data-bs-target="#reserve-pane" type="button" role="tab">
+            <span class="d-block small text-uppercase" style="letter-spacing: 0.5px;">Step 1</span>
+            <i class="fa-solid fa-calendar-plus me-1"></i> Reserve Charging Slot
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link py-3 fw-semibold {% if active_tab == 'settle' %}active{% endif %}" id="settle-tab" data-bs-toggle="pill" data-bs-target="#settle-pane" type="button" role="tab">
+            <span class="d-block small text-uppercase" style="letter-spacing: 0.5px;">Step 2</span>
+            <i class="fa-solid fa-receipt me-1"></i> Settle Bill & Release Port
+            {% if active_bookings|length > 0 %}
+                <span class="badge bg-warning text-dark ms-1 rounded-pill">{{ active_bookings|length }}</span>
+            {% endif %}
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link py-3 fw-semibold {% if active_tab == 'payments' %}active{% endif %}" id="payments-tab" data-bs-toggle="pill" data-bs-target="#payments-pane" type="button" role="tab">
+            <span class="d-block small text-uppercase" style="letter-spacing: 0.5px;">Step 3</span>
+            <i class="fa-solid fa-indian-rupee-sign me-1"></i> Payments & Refund Module
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Contents -->
+<div class="tab-content" id="lifecycleTabContent">
+
+    <!-- ===================================================================== -->
+    <!-- TAB 1: RESERVE EV CHARGING SLOT -->
+    <!-- ===================================================================== -->
+    <div class="tab-pane fade {% if active_tab == 'reserve' %}show active{% endif %}" id="reserve-pane" role="tabpanel">
+        <div class="row g-4">
+            <!-- Left Column: Booking Form -->
+            <div class="col-lg-7">
+                <div class="card p-4 shadow-sm">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-primary-subtle text-primary p-3 rounded-3 me-3">
+                            <i class="fa-solid fa-calendar-check fs-4"></i>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-0">Reserve EV Charging Slot</h4>
+                            <p class="text-muted small mb-0">Direct customer entry with automatic user registration in <code>USERS</code> and <code>BOOKINGS</code>.</p>
+                        </div>
+                    </div>
+                    <hr>
+
+                    <form method="POST" action="{{ url_for('unified_booking_payment') }}">
+                        <input type="hidden" name="action" value="reserve">
+
+                        <!-- Driver Name & Phone Text Inputs -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="driver_name" class="form-label fw-semibold">
+                                    Driver Full Name <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fa-solid fa-user text-secondary"></i></span>
+                                    <input type="text" class="form-control" id="driver_name" name="driver_name" 
+                                           placeholder="e.g. Aarav Patel" 
+                                           value="{{ current_user.name if current_user.is_authenticated and not current_user.is_admin else '' }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="driver_phone" class="form-label fw-semibold">
+                                    Mobile Number (India) <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fa-solid fa-phone text-secondary"></i></span>
+                                    <input type="text" class="form-control" id="driver_phone" name="driver_phone" 
+                                           placeholder="+91-98765-43210" 
+                                           value="{{ current_user.phone if current_user.is_authenticated and not current_user.is_admin else '' }}" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- EV Model Picker (Indian EVs) -->
+                        <div class="mb-3">
+                            <label for="vehicle_model" class="form-label fw-semibold">
+                                Electric Vehicle Model
+                            </label>
+                            <select class="form-select" id="vehicle_model" name="vehicle_model" onchange="suggestConnector(this)">
+                                <option value="" selected>-- Select your EV Model (Optional) --</option>
+                                {% for model in indian_ev_models %}
+                                    <option value="{{ model.name }}" data-connector="{{ model.connector }}">
+                                        🚗 {{ model.name }} ({{ model.type }} - Requires {{ model.connector }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Available Port Selection -->
+                        <div class="mb-3">
+                            <label for="port_id" class="form-label fw-semibold">
+                                Select Available Charging Port <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="port_id" name="port_id" required>
+                                <option value="" disabled {% if not preselected_port and not preselected_station %}selected{% endif %}>-- Choose an Available Port --</option>
+                                {% for p in available_ports %}
+                                    <option value="{{ p.port_id }}" 
+                                            {% if preselected_port and preselected_port|int == p.port_id %}selected{% elif preselected_station and preselected_station|int == p.station_id %}selected{% endif %}>
+                                        Port #{{ p.port_id }} (STN-{{ "%03d"|format(p.station_id) }} - {{ p.company_name }}) | {{ p.connector_type }} @ ₹{{ p.rate_per_kwh }}/kWh
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text text-muted">
+                                <i class="fa-solid fa-circle-info me-1 text-primary"></i> Database Trigger <code>trg_port_reserved_on_booking</code> will lock the selected port status to <strong>'Reserved'</strong>.
+                            </div>
+                        </div>
+
+                        <!-- Scheduled Start Time -->
+                        <div class="mb-4">
+                            <label for="start_time" class="form-label fw-semibold">
+                                Scheduled Arrival / Start Time <span class="text-danger">*</span>
+                            </label>
+                            <input type="datetime-local" class="form-control" id="start_time" name="start_time" value="{{ now }}" required>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="reset" class="btn btn-outline-secondary">Reset</button>
+                            <button type="submit" class="btn btn-primary px-4 py-2">
+                                <i class="fa-solid fa-calendar-check me-1"></i> Confirm Reservation & Lock Port
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column: Instructions & Benefits -->
+            <div class="col-lg-5">
+                <div class="card p-4 shadow-sm mb-4 bg-light border-0">
+                    <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-bolt text-warning me-2"></i>How Reservation Works</h5>
+                    <ul class="list-unstyled mb-0 d-flex flex-column gap-3 small">
+                        <li class="d-flex align-items-start">
+                            <span class="badge bg-primary text-white rounded-circle p-2 me-2 mt-1">1</span>
+                            <div>
+                                <strong>Direct Customer Entry:</strong> Type driver name and mobile number. Existing drivers are seamlessly linked; new drivers are automatically created.
+                            </div>
+                        </li>
+                        <li class="d-flex align-items-start">
+                            <span class="badge bg-primary text-white rounded-circle p-2 me-2 mt-1">2</span>
+                            <div>
+                                <strong>Automatic Port Lock:</strong> Once confirmed, SQLite trigger <code>trg_port_reserved_on_booking</code> prevents double bookings.
+                            </div>
+                        </li>
+                        <li class="d-flex align-items-start">
+                            <span class="badge bg-primary text-white rounded-circle p-2 me-2 mt-1">3</span>
+                            <div>
+                                <strong>Seamless Handoff:</strong> When charging finishes, proceed to Step 2 to enter kWh energy and settle the bill in INR (₹).
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card p-4 shadow-sm border">
+                    <h6 class="fw-bold mb-2"><i class="fa-solid fa-indian-rupee-sign text-success me-2"></i>Tariff & Taxes in India</h6>
+                    <p class="text-muted small mb-0">
+                        Tariffs range between <strong>₹12.00 - ₹24.00 per kWh</strong> depending on charger speed (Type 2 AC vs. CCS2 120kW DC Fast). A standard ₹25 base connection charge and 5% statutory electricity GST are computed at settlement.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 2: ACTIVE SESSIONS & BILL SETTLEMENT -->
+    <!-- ===================================================================== -->
+    <div class="tab-pane fade {% if active_tab == 'settle' %}show active{% endif %}" id="settle-pane" role="tabpanel">
+        <div class="row g-4">
+            <!-- Left Column: Settlement Form -->
+            <div class="col-lg-7">
+                <div class="card p-4 shadow-sm">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-success-subtle text-success p-3 rounded-3 me-3">
+                            <i class="fa-solid fa-receipt fs-4"></i>
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-0">Complete Session & Settle Bill</h4>
+                            <p class="text-muted small mb-0">Calculates Energy (kWh) × Rate (₹) + Taxes, inserts <code>CHARGING_SESSIONS</code> and <code>PAYMENTS</code>.</p>
+                        </div>
+                    </div>
+                    <hr>
+
+                    {% if active_bookings %}
+                    <form method="POST" action="{{ url_for('unified_booking_payment') }}" id="settleForm">
+                        <input type="hidden" name="action" value="settle">
+
+                        <!-- Booking Selection -->
+                        <div class="mb-3">
+                            <label for="booking_id" class="form-label fw-semibold">
+                                Select Active Booking to Settle <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="booking_id" name="booking_id" required onchange="updateBillCalculator(this)">
+                                <option value="" disabled {% if not highlight_id %}selected{% endif %}>-- Select Confirmed Booking --</option>
+                                {% for b in active_bookings %}
+                                    <option value="{{ b.booking_id }}" 
+                                            data-rate="{{ b.rate_per_kwh }}" 
+                                            data-driver="{{ b.user_name }}"
+                                            data-port="{{ b.port_id }}"
+                                            data-operator="{{ b.company_name }}"
+                                            {% if highlight_id and highlight_id|int == b.booking_id %}selected{% endif %}>
+                                        Booking #{{ b.booking_id }} | Driver: {{ b.user_name }} (Port #{{ b.port_id }} - {{ b.connector_type }} @ ₹{{ b.rate_per_kwh }}/kWh)
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Energy Delivered -->
+                        <div class="mb-3">
+                            <label for="energy_kwh" class="form-label fw-semibold">
+                                Energy Delivered (kWh) <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" step="0.1" min="0.5" max="250.0" class="form-control font-monospace" 
+                                   id="energy_kwh" name="energy_kwh" value="32.5" required oninput="recalcLiveBill()">
+                            <div class="form-text text-muted">
+                                Typical Indian EV charge: Tata Nexon EV (30-40 kWh), Tiago EV (15-24 kWh), 2-Wheelers (2.5-4 kWh).
+                            </div>
+                        </div>
+
+                        <!-- Session End Timestamp -->
+                        <div class="mb-3">
+                            <label for="end_time" class="form-label fw-semibold">
+                                Charging Session End Timestamp <span class="text-danger">*</span>
+                            </label>
+                            <input type="datetime-local" class="form-control" id="end_time" name="end_time" value="{{ now }}" required>
+                        </div>
+
+                        <!-- Live Cost Breakdown Card -->
+                        <div class="card p-3 bg-light border mb-4">
+                            <h6 class="fw-bold mb-2 text-dark"><i class="fa-solid fa-calculator text-primary me-2"></i>Live Tariff Calculation</h6>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">Energy Cost (<span id="dispKwh">32.5</span> kWh × ₹<span id="dispRate">18.50</span>/kWh):</span>
+                                <span class="fw-semibold">₹<span id="dispEnergySubtotal">601.25</span></span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">Base Grid Connection Fee:</span>
+                                <span class="fw-semibold">₹25.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">Statutory GST (5%):</span>
+                                <span class="fw-semibold">₹<span id="dispTax">31.31</span></span>
+                            </div>
+                            <hr class="my-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong class="text-dark">Total Net Settlement:</strong>
+                                <h4 class="fw-bold text-success mb-0 font-monospace">₹<span id="dispTotal">657.56</span></h4>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-success px-4 py-2">
+                                <i class="fa-solid fa-circle-check me-1"></i> Process Payment & Release Port
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-info py-4 text-center">
+                        <i class="fa-solid fa-circle-info fs-3 d-block mb-2"></i>
+                        <h5>No Active Bookings Pending Settlement</h5>
+                        <p class="text-muted small mb-3">All previous reservations have either completed or there are no active sessions for your account.</p>
+                        <a href="{{ url_for('unified_booking_payment', tab='reserve') }}" class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-plus me-1"></i> Create a New Booking
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Right Column: Active Bookings Table -->
+            <div class="col-lg-5">
+                <div class="card p-4 shadow-sm h-100">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-list-check text-primary me-2"></i>Ready for Settlement</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-custom align-middle small mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Booking</th>
+                                    <th>Driver</th>
+                                    <th>Port</th>
+                                    <th>Tariff</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if active_bookings %}
+                                    {% for b in active_bookings %}
+                                    <tr>
+                                        <td><strong>#{{ b.booking_id }}</strong></td>
+                                        <td>{{ b.user_name }}</td>
+                                        <td><span class="badge bg-light text-dark border">#{{ b.port_id }}</span></td>
+                                        <td><strong class="text-primary">₹{{ b.rate_per_kwh }}</strong></td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4 text-muted">No pending bookings.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 3: PAYMENTS HISTORY & REFUND MODULE -->
+    <!-- ===================================================================== -->
+    <div class="tab-pane fade {% if active_tab == 'payments' %}show active{% endif %}" id="payments-pane" role="tabpanel">
+        <!-- Settlement History Table -->
+        <div class="card p-4 shadow-sm mb-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+                <div>
+                    <h5 class="fw-bold mb-1">
+                        <i class="fa-solid fa-receipt text-success me-2"></i>Settled Charging Payments (INR ₹)
+                    </h5>
+                    <p class="text-muted small mb-0">Official payment ledger stored in <code>PAYMENTS</code>. Direct refund initiation enabled below.</p>
+                </div>
+                <div>
+                    <span class="badge bg-light text-dark border px-3 py-2">
+                        <i class="fa-solid fa-shield-check text-success me-1"></i> GST Compliant Ledger
+                    </span>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-custom align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Payment #</th>
+                            <th>Booking #</th>
+                            <th>Customer Name</th>
+                            <th>Operator / Port</th>
+                            <th>Energy (kWh)</th>
+                            <th>Total Paid (₹)</th>
+                            <th>Refund Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if recent_payments %}
+                            {% for p in recent_payments %}
+                            <tr {% if highlight_pay and highlight_pay|int == p.payment_id %}class="table-success"{% endif %}>
+                                <td><strong class="font-monospace">PAY-{{ "%04d"|format(p.payment_id) }}</strong></td>
+                                <td><strong>#{{ p.booking_id }}</strong></td>
+                                <td>{{ p.user_name }}</td>
+                                <td>{{ p.company_name }} <small class="text-muted">({{ p.connector_type }})</small></td>
+                                <td><span class="badge bg-info-subtle text-info-emphasis">{{ p.energy_kwh or 'N/A' }} kWh</span></td>
+                                <td><strong class="text-success fs-6 font-monospace">₹{{ p.amount }}</strong></td>
+                                <td>
+                                    {% if p.refund_id %}
+                                        <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
+                                            <i class="fa-solid fa-rotate-left me-1"></i>Refunded (₹{{ p.refunded_amount }})
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
+                                            <i class="fa-solid fa-circle-check me-1"></i>Settled
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if not p.refund_id %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2" 
+                                                onclick="openRefundModal('{{ p.payment_id }}', '{{ p.booking_id }}', '{{ p.user_name }}', '{{ p.amount }}')">
+                                            <i class="fa-solid fa-rotate-left me-1"></i> Refund
+                                        </button>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Processed</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">No settled payments yet.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Refund Transactions Audit Log -->
+        <div class="card p-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0">
+                    <i class="fa-solid fa-rotate-left text-danger me-2"></i>Refund & Billing Adjustment Audit Log
+                </h5>
+                <span class="badge bg-light text-dark border">Table: <code>REFUNDS</code></span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-custom align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Refund #</th>
+                            <th>Payment #</th>
+                            <th>Booking #</th>
+                            <th>Customer</th>
+                            <th>Refund Amount (₹)</th>
+                            <th>Reason / Dispute</th>
+                            <th>Timestamp</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if refunds_log %}
+                            {% for r in refunds_log %}
+                            <tr>
+                                <td><strong class="text-danger font-monospace">REF-{{ "%03d"|format(r.refund_id) }}</strong></td>
+                                <td>PAY-{{ "%04d"|format(r.payment_id) }}</td>
+                                <td>#{{ r.booking_id }}</td>
+                                <td>{{ r.user_name }}</td>
+                                <td><strong class="text-danger font-monospace">₹{{ r.amount }}</strong></td>
+                                <td><small class="text-muted">{{ r.reason }}</small></td>
+                                <td><small class="text-muted">{{ r.refund_time }}</small></td>
+                                <td>
+                                    <span class="badge bg-success-subtle text-success-emphasis"><i class="fa-solid fa-check me-1"></i>{{ r.status }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">No refund records logged.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- REFUND MODAL -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="refundModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" action="{{ url_for('unified_booking_payment') }}">
+                <input type="hidden" name="action" value="refund">
+                <input type="hidden" name="payment_id" id="modal_payment_id">
+
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="fa-solid fa-rotate-left me-2"></i>Initiate Payment Refund
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-warning small mb-3">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                        Processing this refund will record an entry in <code>REFUNDS</code> and mark the linked booking as Cancelled/Refunded.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted mb-0">Customer & Payment</label>
+                        <h6 class="fw-bold" id="modal_customer_info">-</h6>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="refund_amount" class="form-label fw-semibold">Refund Amount (INR ₹)</label>
+                        <input type="number" step="0.01" class="form-control font-monospace" id="modal_refund_amount" name="refund_amount" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reason" class="form-label fw-semibold">Reason for Refund</label>
+                        <select class="form-select mb-2" onchange="if(this.value) document.getElementById('modal_reason').value = this.value;">
+                            <option value="">-- Choose a standard reason or type custom --</option>
+                            <option value="Charging terminated early due to grid fault">Charging terminated early due to grid fault</option>
+                            <option value="Overbilled due to peak rate calculation error">Overbilled due to peak rate calculation error</option>
+                            <option value="Disputed session - port dispenser failure">Disputed session - port dispenser failure</option>
+                            <option value="Duplicate payment charged by UPI gateway">Duplicate payment charged by UPI gateway</option>
+                            <option value="Slot cancelled within permissible refund window">Slot cancelled within permissible refund window</option>
+                        </select>
+                        <textarea class="form-control" id="modal_reason" name="reason" rows="2" placeholder="Describe the reason for adjustment..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger px-4">
+                        <i class="fa-solid fa-check me-1"></i> Authorize & Process Refund
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-suggest required connector type based on selected Indian EV model
+function suggestConnector(selectEl) {
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    const connector = selectedOption.getAttribute('data-connector');
+    if (!connector) return;
+
+    const portSelect = document.getElementById('port_id');
+    for (let i = 0; i < portSelect.options.length; i++) {
+        const text = portSelect.options[i].text;
+        if (text.includes(connector)) {
+            portSelect.selectedIndex = i;
+            break;
+        }
+    }
+}
+
+// Live recalculation for Step 2 bill settlement
+function updateBillCalculator(selectEl) {
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    const rate = parseFloat(selectedOption.getAttribute('data-rate')) || 18.50;
+    document.getElementById('dispRate').innerText = rate.toFixed(2);
+    recalcLiveBill();
+}
+
+function recalcLiveBill() {
+    const kwh = parseFloat(document.getElementById('energy_kwh').value) || 0.0;
+    const rate = parseFloat(document.getElementById('dispRate').innerText) || 18.50;
+    const baseFee = 25.00;
+    const energyCost = kwh * rate;
+    const subtotal = energyCost + baseFee;
+    const tax = subtotal * 0.05;
+    const total = subtotal + tax;
+
+    document.getElementById('dispKwh').innerText = kwh.toFixed(1);
+    document.getElementById('dispEnergySubtotal').innerText = energyCost.toFixed(2);
+    document.getElementById('dispTax').innerText = tax.toFixed(2);
+    document.getElementById('dispTotal').innerText = total.toFixed(2);
+}
+
+// Open Refund Modal helper
+function openRefundModal(paymentId, bookingId, customerName, amount) {
+    document.getElementById('modal_payment_id').value = paymentId;
+    document.getElementById('modal_customer_info').innerText = `${customerName} (Payment #${paymentId} for Booking #${bookingId})`;
+    document.getElementById('modal_refund_amount').value = parseFloat(amount).toFixed(2);
+    document.getElementById('modal_refund_amount').max = parseFloat(amount).toFixed(2);
+    document.getElementById('modal_reason').value = 'Charging session adjustment';
+
+    const modal = new bootstrap.Modal(document.getElementById('refundModal'));
+    modal.show();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const bookingSelect = document.getElementById('booking_id');
+    if (bookingSelect && bookingSelect.selectedIndex > 0) {
+        updateBillCalculator(bookingSelect);
+    } else {
+        recalcLiveBill();
+    }
+});
+</script>
+{% endblock %}
